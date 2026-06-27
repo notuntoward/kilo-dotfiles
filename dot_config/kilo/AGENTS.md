@@ -1,0 +1,56 @@
+# Global agent rules
+
+These rules apply to every Kilo session, regardless of project.
+Project-level `AGENTS.md` files are loaded *after* this one and may
+override or supplement any rule below.
+
+## Rule: Commit messages — no hard-wrap within paragraphs
+
+Each paragraph in a commit message must sit on a single line. Do not
+insert newlines mid-sentence. Different clients (terminal git log,
+GitHub web UI, GUI git clients) render commit messages at different
+line widths; mid-paragraph hard-wraps produce ragged reflows across
+these surfaces. Use blank lines between paragraphs as usual.
+
+If your body paragraph is long, split it into two paragraphs instead
+of wrapping one.
+
+## Rule: When the runtime loads a pre-built bundle, verify the bundle
+after every source change
+
+If this project produces a pre-built artifact that the runtime loads
+directly (not built at install time) — e.g. an Obsidian plugin's
+`main.js`, a browser extension's `dist/`, a VS Code extension's
+`out/`, a compiled binary — you MUST:
+
+Run `npm run build` (or the relevant build command) after any edit to
+source files.
+
+Grep the built artifact for a fingerprint of your change: a new
+string literal, an updated regex, a renamed identifier, a changed
+test assertion. `git diff` against HEAD is not enough — you want
+evidence that the *bundle on disk*, which is what the user's runtime
+actually loads, reflects your change.
+
+Do this before declaring the task complete or asking the user to
+test. Both of the following failure modes have already happened in
+real sessions and cost user time and agent credits:
+
+- The agent edited TypeScript but did not build, so the user reloaded
+  the plugin and saw no change.
+- The agent ran `npm run build`, the build silently failed (lint or
+  type error), the agent did not notice, and the bundle on disk was
+  unchanged.
+
+A post-build grep catches both.
+
+### What NOT to do
+
+- Do NOT assume `npm run build` succeeded without checking its exit
+  status.
+- Do NOT declare a task done without grepping the built artifact for
+  evidence that the change landed.
+- Do NOT ask the user to test before you have verified the built
+  artifact contains your edit.
+- Do NOT rely only on `git diff` against HEAD — that shows source
+  changes, not what the runtime loads.

@@ -1,0 +1,9 @@
+# Global config managed by chezmoi
+# See https://www.chezmoi.io for what to commit:
+#   - dot_config/AGENTS.md (and any other dotfiles added via `chezmoi add`)
+#   - README.md  (this file — useful context on GitHub)
+# Do NOT commit:
+#   - OS-specific metadata
+*.DS_Store
+Thumbs.db
+desktop.ini
