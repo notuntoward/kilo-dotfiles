@@ -44,6 +44,25 @@ real sessions and cost user time and agent credits:
 
 A post-build grep catches both.
 
+### When the source lives in a git worktree
+
+If your changes are in a git worktree (any source path containing
+`.kilo/worktrees/`, `worktrees/`, or otherwise outside the main
+checkout), the pre-built artifact at the canonical path in the main
+checkout is NOT automatically updated. The user's runtime will still
+load the main checkout's artifact, not the worktree's — the build
+happened in a different working directory.
+
+Before asking the user to load or test, one of:
+
+- Apply the changes back to the main branch and rebuild there, OR
+- Print the exact filesystem path of the built artifact in the
+  worktree and confirm the user knows where to look.
+
+Always print the full filesystem path of the built artifact before
+any user-test instruction. This lets the user verify which checkout's
+artifact is being loaded.
+
 ### What NOT to do
 
 - Do NOT assume `npm run build` succeeded without checking its exit
