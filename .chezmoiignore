@@ -1,0 +1,4 @@
+# Files tracked by this repo that should NOT be installed into $HOME
+# by `chezmoi apply`. Only files with a `dot_` prefix are installed
+# automatically, but this protects against accidental additions.
+README.md
