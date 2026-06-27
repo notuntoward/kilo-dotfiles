@@ -44,24 +44,47 @@ real sessions and cost user time and agent credits:
 
 A post-build grep catches both.
 
-### When the source lives in a git worktree
+### When building an Obsidian plugin inside a git worktree
 
-If your changes are in a git worktree (any source path containing
-`.kilo/worktrees/`, `worktrees/`, or otherwise outside the main
-checkout), the pre-built artifact at the canonical path in the main
-checkout is NOT automatically updated. The user's runtime will still
-load the main checkout's artifact, not the worktree's — the build
-happened in a different working directory.
+Obsidian's vault loads plugins from `<vault>/.obsidian/plugins/<id>`, which is
+typically a Windows junction to the main checkout's plugin folder.  When the
+agent builds `main.js` inside a worktree (`.kilo/worktrees/<name>/`), the
+vault continues loading the main checkout's `main.js` — the user sees no
+change.  The fix must point the vault junction at the freshly-built checkout.
 
-Before asking the user to load or test, one of:
+When you need the user to reload a worktree build in real Obsidian, do one of:
 
-- Apply the changes back to the main branch and rebuild there, OR
-- Print the exact filesystem path of the built artifact in the
-  worktree and confirm the user knows where to look.
+1. **Prefer `local` mode for Agent Manager fan-outs.** Changes land in the
+   main checkout and the existing junction keeps working. Only use
+   `worktree` mode when session isolation is required (conflicting edits,
+   multi-branch experiments).
 
-Always print the full filesystem path of the built artifact before
-any user-test instruction. This lets the user verify which checkout's
-artifact is being loaded.
+2. **If the work is in an Agent Manager worktree and isolation was needed,**
+   finish tests inside the worktree (Vitest/Playwright resolve to `main.ts`
+   and are unaffected), then ask the user to run `Agent Manager Apply` and
+   `npm run build` in the main checkout.
+
+3. **If the vault must be re-pointed at the worktree now,** use the shared
+   relink script:
+   ```powershell
+   & "$env:USERPROFILE\.config\kilo\tools\obsidian-relink.ps1" `
+       -Source "$worktreePath"
+   ```
+   then tell the user to reload the plugin in Obsidian.  The vault path is
+   auto-discovered from common locations or passed via `-Vault` if needed.
+
+Always print the full filesystem path of the built `main.js` before the
+user-reload instruction.  That way, if anything goes wrong, the user can
+verify by inspection which build the vault is loading.
+
+### What NOT to do
+
+- Do NOT ask the user to manually remove a junction and create a new one in
+  PowerShell.  The relink script exists for that and handles the edge cases.
+- Do NOT assume a fresh build in a worktree automatically updated
+  `<vault>/.obsidian/plugins/<id>/main.js`.
+- Do NOT assume `git diff` against HEAD is sufficient evidence the bundle
+  was built.  Grep the built `main.js` for a fingerprint of the change.
 
 ### What NOT to do
 

@@ -43,11 +43,14 @@ don't, the rule simply never fires (no harm).
 
 ```
 .
+├── .chezmoiignore              # keep repo-only files out of installed paths
 ├── .gitignore                  # keep OS junk out of the repo
 ├── README.md                   # the file you are reading
 └── dot_config/
     └── kilo/
-        └── AGENTS.md           # the global rules file
+        ├── AGENTS.md           # the global rules file
+        └── tools/
+            └── obsidian-relink.ps1   # shared vault-junction relinker
 ```
 
 chezmoi maps paths under `dot_config/` to `~/.config/` (and similar).
@@ -109,6 +112,25 @@ git push
 
 On a future machine, `chezmoi apply` will write `kilo.jsonc` into
 `~/.config/kilo/` automatically.
+
+### Tools shipped through chezmoi
+
+The dotfiles repo also distributes small helper scripts that every
+Kilo session (and you, from PowerShell) should be able to call.  These
+live under `dot_config/kilo/tools/` in this repo and install to
+`~/.config/kilo/tools/` on every machine:
+
+| Script | What it does |
+|--------|--------------|
+| `obsidian-relink.ps1` | Points an Obsidian vault's plugin loader (`<vault>/.obsidian/plugins/<id>`) at any checkout (main or an Agent Manager worktree).  Handles junction removal/re-creation safely; idempotent if already pointing at the requested path.  The global `AGENTS.md` rule references this script whenever a Kilo agent needs to relink the vault during testing. |
+
+To add a new tool to this set, drop it under `dot_config/kilo/tools/`
+in this repo, commit, push, and `chezmoi apply`.  Every future machine
+picks it up automatically.
+
+Do **not** install tool scripts by hand into `~/.local/bin/` or
+`C:\scripts\` as a one-off — they will drift out of sync across
+machines.  Keep them here.
 
 ### Asking Kilo what rules it loaded
 
