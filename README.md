@@ -166,31 +166,53 @@ The two `obsidian-*-links` repos each have roughly this shape.
 
 ## 5. Reinstalling Kilo / setting up a new computer
 
-Prerequisite: a `~/.config/kilo/` directory. If Kilo was never installed,
-create it empty — chezmoi will populate what it manages and Kilo ignores
-the rest.
+**No prerequisites.** `chezmoi apply` creates every parent directory
+(`~/.config/`, `~/.config/kilo/`, etc.) automatically, so nothing needs
+to exist beforehand. Order also does not strictly matter: running
+chezmoi before or after Kilo is installed produces the same result,
+because each step creates directories idempotently and neither side
+clobbers the other (`kilo.jsonc` lives next to `AGENTS.md` on disk but
+is a different file).
+
+The recommended sequence matches the natural order of setting up a
+fresh machine:
 
 ```powershell
-# 1. Install chezmoi (one-time per machine, needs admin for the installer)
+# 1. Install VS Code, then the Kilo Code extension from the Marketplace.
+#    Opening Kilo once creates ~/.config/kilo/ with a default kilo.jsonc.
+#    (If you skip this, chezmoi below will create the directory for you.)
+
+# 2. Install chezmoi (one-time per machine)
 winget install twpayne.chezmoi --accept-source-agreements
 
 # If winget does not update PATH in the current shell, start a new
 # PowerShell before continuing.
 
-# 2. Bootstrap all managed dotfiles from this repo
+# 3. Bootstrap all managed dotfiles from this repo
 chezmoi init https://github.com/notuntoward/kilo-dotfiles.git
 chezmoi apply
 
-# 3. Verify
+# 4. Verify
 chezmoi status        # empty output == installed == source, no diff
 chezmoi diff          # also empty on a clean setup
 
-# 4. Restart Kilo. The global rules load on next session start.
+# 5. Restart Kilo. The global rules load on next session start.
 ```
 
 That is everything. Do not also copy Kilo's config directories from the
 old machine — `chezmoi init` pulls only what this repo tracks. Anything
-else is not managed and should not be migrated without reason.
+else in `~/.config/kilo/` (like `kilo.jsonc` with default settings) is
+not managed by this repo and can sit alongside the tracked file without
+conflict.
+
+**A subtle point about ordering.** If you run `chezmoi apply` before
+Kilo has ever launched, it will cleanly create `~/.config/kilo/` and
+drop `AGENTS.md` in place. When you later install Kilo and open your
+first session, Kilo sees the file and loads it; it does not overwrite
+it. Conversely, if you let Kilo land first and then run `chezmoi apply`,
+Kilo's existing `kilo.jsonc` is ignored by chezmoi and left alone. The
+only thing to track manually if you care about it is `kilo.jsonc` — see
+Section 3 ("Adding a new global dotfile") if you want to do that.
 
 ---
 
