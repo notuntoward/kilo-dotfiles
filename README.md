@@ -1,51 +1,216 @@
-# kilocode-global
+# Kilo agent rules: where things live and how they are managed
 
-One repo, many machines: this holds the global Kilo Code agent rules
-loaded from `~/.config/kilo/AGENTS.md`.
+This repo holds the **global rules** that every Kilo session loads, plus a
+thin bit of documentation so future-you (or a new machine) can set it up
+again without guessing.
 
-## Files tracked
+Everything lives in one source-of-truth location, tracked by chezmoi,
+which keeps `~/.config/kilo/AGENTS.md` in sync with this repo on every
+machine that runs `chezmoi apply`.
 
-| Source state path                       | Installed at (chezmoi applies to)   |
-|----------------------------------------|-------------------------------------|
-| `dot_config/kilo/AGENTS.md`             | `~/.config/kilo/AGENTS.md`          |
-| `dot_config/kilo/kilo.jsonc` (future)  | `~/.config/kilo/kilo.jsonc`         |
+---
 
-See https://www.chezmoi.io for how `dot_config/...` maps to `~/.config/...`.
+## 1. The four places Kilo reads rules from
 
-## On a new machine
+Kilo merges rules from several layers, lower-precedence first:
 
-```powershell
-# 1. Install chezmoi (one-time per machine)
-winget install twpayne.chezmoi --accept-source-agreements
+| # | Layer | Path | What it does | Managed here? |
+|---|---|---|---|---|
+| 1 | **Global rules** | `~/.config/kilo/AGENTS.md` | Loaded in **every** session, across every project | **Yes** — this repo |
+| 2 | Project rules | `<repo>/AGENTS.md` | Loaded only when Kilo opens that repo | No — each repo's own git |
+| 3 | Subdirectory rules | `<repo>/src/AGENTS.md` etc. | Loaded only under that subpath | No — each repo's own git |
+| 4 | `kilo.json` `instructions` | any path referenced there | Extra rule files loaded wherever you point | Optional, not used yet |
 
-# 2. Bootstrap all managed dotfiles from this repo
-chezmoi init <your-clone-url>
-chezmoi apply
+Precedence: **a later layer always wins over an earlier one**. So a
+`<repo>/AGENTS.md` can override a global rule if you ever need to, but in
+practice there is no reason to — the global rules are universal enough to
+apply cleanly everywhere.
+
+### What the global rules currently say
+
+1. Commit messages must not have hard-wraps within paragraphs.
+2. For projects that ship a pre-built runtime bundle (Obsidian plugins,
+   browser extensions, VS Code extensions, compiled binaries), Kilo must
+   rebuild and grep-verify the bundle after every source change.
+
+Rule 1 applies to every repo (Python data science, notes, everything).
+Rule 2 applies to any repo that ships a pre-built bundle; in repos that
+don't, the rule simply never fires (no harm).
+
+---
+
+## 2. The files in this repo
+
+```
+.
+├── .gitignore                  # keep OS junk out of the repo
+├── README.md                   # the file you are reading
+└── dot_config/
+    └── kilo/
+        └── AGENTS.md           # the global rules file
 ```
 
-The `AGENTS.md` file is now in place; Kilo picks it up on the next session
-start. No further action.
+chezmoi maps paths under `dot_config/` to `~/.config/` (and similar).
+When you run `chezmoi apply`, every file under `dot_config/` is written
+to its matching installed location. That is the **only** thing chezmoi
+does — it is a dumb synchronizer with git tracking attached.
 
-## Editing a rule
+Do **not** create files at `~/.config/kilo/...` by hand and wonder why
+they disappear. Always edit the version inside this repo (or run
+`chezmoi edit ~/.config/kilo/AGENTS.md`, which opens the installed copy
+and, on save, copies the updated contents back into this repo).
 
-Edit `dot_config/kilo/AGENTS.md` in this repo, commit, push. On this machine
-only, also run `chezmoi apply` to update the installed file immediately. On
-other machines, wait for the next `chezmoi apply` (or pull and apply).
+### Why not keep global rules in `~/.config/kilo/AGENTS.md` directly?
 
-Adding a new dotfile (e.g. `kilo.jsonc` once you have preferences stored):
+Nothing stops Kilo from reading the file as it is — and it does. But
+without chezmoi, the file is a lone copy on one machine, with no history,
+no push-to-GitHub, no easy bootstrap on new machines. chezmoi gives you
+all of that for free with a two-command bootstrap sequence.
+
+---
+
+## 3. Day-to-day operations
+
+### Editing a global rule
 
 ```powershell
-# add the installed file; chezmoi copies it into this repo's dot_config/
-chezmoi add ~\.config\kilo\kilo.jsonc
-# commit + push
-git add --all
-git commit -m 'track kilo.jsonc'
+# Option A — edit the installed copy straight (chezmoi watches nothing,
+# so it does not auto-pick up this change; you must commit manually)
+notepad "$env:USERPROFILE\.config\kilo\AGENTS.md"
+
+# Option B — chezmoi's convenience wrapper: opens the installed copy,
+# waits for you to save, and on close copies it back into the source repo.
+chezmoi edit "$env:USERPROFILE\.config\kilo\AGENTS.md"
+```
+
+Either way, after editing, commit and push the source repo:
+
+```powershell
+chezmoi cd           # opens a subshell inside the source repo
+git add dot_config/kilo/AGENTS.md
+git commit -m "global rules: <short reason>"
+git push
+exit
+```
+
+On other machines, a manual `chezmoi apply` (or `chezmoi update` on the
+source repo) pulls the change and rewrites the installed file.
+
+### Adding a new global dotfile (e.g. `kilo.jsonc` once you store prefs there)
+
+```powershell
+chezmoi add "$env:USERPROFILE\.config\kilo\kilo.jsonc"
+# chezmoi copies the file into dot_config/kilo/
+chezmoi cd
+git add dot_config/kilo/kilo.jsonc
+git commit -m "track kilo.jsonc"
 git push
 ```
 
-## Repo rules (loaded into every Kilo session)
+On a future machine, `chezmoi apply` will write `kilo.jsonc` into
+`~/.config/kilo/` automatically.
 
-- **Commit messages:** no mid-paragraph hard-wraps
-- **Pre-built bundles:** verify the bundle matches TypeScript edits before
-  asking the user to test (generalized — applies to any repo that ships a
-  pre-built artifact the runtime loads)
+### Asking Kilo what rules it loaded
+
+Inside any Kilo session, paste:
+
+```
+show me the exact set of agent rules you loaded
+```
+
+Kilo will list every `AGENTS.md` it sees and the contents of each. Use
+this to verify a new machine is bootstrapped correctly.
+
+---
+
+## 4. Creating a new repo
+
+**You probably do not need to do anything.** The global rules load in
+every project automatically. A new repo's first Kilo session will already
+see the commit-message and bundle-verify rules.
+
+Add a **project-level `<repo>/AGENTS.md`** only when the new repo has
+something genuinely repo-specific to communicate to Kilo — for example:
+
+- An Obsidian plugin with a known-frogile cursor-correction ordering
+- A Python project that uses Poetry + Black + a specific test runner
+- A repo with an unusual build command or deployment flow
+
+When you do add a project-level `AGENTS.md`, put it at the repo root.
+Kilo walks up from the edited file to find the nearest one. Subdirectory
+rules (`<repo>/src/AGENTS.md`) apply only under that subpath and are not
+commonly needed.
+
+### Recommended project `AGENTS.md` shape
+
+```markdown
+# Agent Instructions for <repo-name>
+
+## Critical: <one-line description of the fragile thing>
+Explain the bug pattern, the root cause, how to verify (point at
+the exact test suite), and an explicit "What NOT to do" list.
+
+## Build & test
+List the commands the agent must run to verify its work:
+- `npm run build && npm run test:run`
+- `poetry run pytest`
+- whatever the repo uses
+
+## Conventions worth repeating
+Anything local that Kilo's general-purpose instructions might miss.
+```
+
+The two `obsidian-*-links` repos each have roughly this shape.
+
+---
+
+## 5. Reinstalling Kilo / setting up a new computer
+
+Prerequisite: a `~/.config/kilo/` directory. If Kilo was never installed,
+create it empty — chezmoi will populate what it manages and Kilo ignores
+the rest.
+
+```powershell
+# 1. Install chezmoi (one-time per machine, needs admin for the installer)
+winget install twpayne.chezmoi --accept-source-agreements
+
+# If winget does not update PATH in the current shell, start a new
+# PowerShell before continuing.
+
+# 2. Bootstrap all managed dotfiles from this repo
+chezmoi init https://github.com/notuntoward/kilo-dotfiles.git
+chezmoi apply
+
+# 3. Verify
+chezmoi status        # empty output == installed == source, no diff
+chezmoi diff          # also empty on a clean setup
+
+# 4. Restart Kilo. The global rules load on next session start.
+```
+
+That is everything. Do not also copy Kilo's config directories from the
+old machine — `chezmoi init` pulls only what this repo tracks. Anything
+else is not managed and should not be migrated without reason.
+
+---
+
+## 6. Troubleshooting
+
+**Q: A change I made in Kilo is not taking effect.**
+Check `chezmoi status`. If the installed file (`~/.config/kilo/AGENTS.md`)
+does not match the source state, run `chezmoi apply`. Kilo reloads the
+rules at session start; opening a new session picks up the new version.
+
+**Q: Kilo's session still doesn't see the rule.**
+Ask Kilo directly: `show me the exact set of agent rules you loaded`. If
+the list does not include `~/.config/kilo/AGENTS.md`, the filename is
+wrong or in the wrong directory. Kilo is exact about the path:
+`~/.config/kilo/AGENTS.md` (Windows: `C:\Users\<user>\.config\kilo\AGENTS.md`).
+
+**Q: `chezmoi apply` overwrote a change I wanted to keep outside this repo.**
+chezmoi is authoritative: any untracked edit to an installed file gets
+clobbered on `apply`. Edit only the copy inside the source repo (or use
+`chezmoi edit`, which handles the round-trip).
+
+**Q: I added `$HOME/.config/kilo/other-file` by hand and want it tracked.**
+See Section 3, "Adding a new global dotfile." `chezmoi add` is a one-liner.
