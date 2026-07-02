@@ -1,9 +1,13 @@
-# Obsidian plugin-relink helper
+# Obsidian plugin-relink helper (Windows)
 #
 # Points your vault's plugin loader at one of your checkouts (main
-# or an Agent Manager worktree) by removing the existing symlink/junction
-# at <vault>/.obsidian/plugins/<pluginId> and replacing it with a fresh
-# Windows junction to the requested source directory.
+# or an Agent Manager worktree) by removing the existing link at
+# <vault>/.obsidian/plugins/<pluginId> and replacing it with a fresh
+# link to the requested source directory.
+#
+# On Windows, this creates a **junction** (New-Item -ItemType Junction).
+# On macOS and Linux, this script is NOT used — instead, the manual
+# `ln -sfn` command in the global AGENTS.md accomplishes the same thing.
 #
 # The plugin id is read from the source path's manifest.json, so the same
 # single invocation works for every Obsidian plugin repo.

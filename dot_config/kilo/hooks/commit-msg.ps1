@@ -2,8 +2,9 @@
 # internal newlines mid-paragraph).  This enforces the AGENTS.md rule:
 # each paragraph must sit on a single line.
 #
-# Install once per machine:
-#   git config --global core.hooksPath "$env:USERPROFILE\.config\kilo\hooks"
+# Install once per machine (pick the right syntax for your platform):
+#   Windows:  git config --global core.hooksPath "$env:USERPROFILE\.config\kilo\hooks"
+#   macOS / Linux:  git config --global core.hooksPath "$HOME/.config/kilo/hooks"
 #
 # Then every 'git commit' in every repo is checked by this script.
 

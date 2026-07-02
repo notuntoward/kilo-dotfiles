@@ -44,13 +44,17 @@ don't, the rule simply never fires (no harm).
 ```
 .
 ├── .chezmoiignore              # keep repo-only files out of installed paths
+├── .gitattributes              # force LF on the bash hook wrapper
 ├── .gitignore                  # keep OS junk out of the repo
 ├── README.md                   # the file you are reading
 └── dot_config/
     └── kilo/
         ├── AGENTS.md           # the global rules file
+        ├── hooks/
+        │   ├── commit-msg      # bash wrapper — git invokes this (no extension)
+        │   └── commit-msg.ps1  # PowerShell body — platform-independent
         └── tools/
-            └── obsidian-relink.ps1   # shared vault-junction relinker
+            └── obsidian-relink.ps1   # vault re-linker (Windows junctions)
 ```
 
 chezmoi maps paths under `dot_config/` to `~/.config/` (and similar).
@@ -76,6 +80,7 @@ all of that for free with a two-command bootstrap sequence.
 
 ### Editing a global rule
 
+**Windows (PowerShell):**
 ```powershell
 # Option A — edit the installed copy straight (chezmoi watches nothing,
 # so it does not auto-pick up this change; you must commit manually)
@@ -86,9 +91,18 @@ notepad "$env:USERPROFILE\.config\kilo\AGENTS.md"
 chezmoi edit "$env:USERPROFILE\.config\kilo\AGENTS.md"
 ```
 
+**macOS / Linux (Bash/zsh):**
+```sh
+# Option A — edit the installed copy directly
+vim ~/.config/kilo/AGENTS.md
+
+# Option B — chezmoi convenience wrapper
+chezmoi edit ~/.config/kilo/AGENTS.md
+```
+
 Either way, after editing, commit and push the source repo:
 
-```powershell
+```sh
 chezmoi cd           # opens a subshell inside the source repo
 git add dot_config/kilo/AGENTS.md
 git commit -m "global rules: <short reason>"
@@ -96,11 +110,11 @@ git push
 exit
 ```
 
-On other machines, a manual `chezmoi apply` (or `chezmoi update` on the
-source repo) pulls the change and rewrites the installed file.
+On other machines, a manual `chezmoi apply` (or `chezmoi update` on the source repo) pulls the change and rewrites the installed file.
 
 ### Adding a new global dotfile (e.g. `kilo.jsonc` once you store prefs there)
 
+**Windows (PowerShell):**
 ```powershell
 chezmoi add "$env:USERPROFILE\.config\kilo\kilo.jsonc"
 # chezmoi copies the file into dot_config/kilo/
@@ -110,27 +124,42 @@ git commit -m "track kilo.jsonc"
 git push
 ```
 
-On a future machine, `chezmoi apply` will write `kilo.jsonc` into
-`~/.config/kilo/` automatically.
+**macOS / Linux (sh):**
+```sh
+chezmoi add ~/.config/kilo/kilo.jsonc
+# chezmoi copies the file into dot_config/kilo/
+chezmoi cd
+git add dot_config/kilo/kilo.jsonc
+git commit -m "track kilo.jsonc"
+git push
+```
+
+On a future machine, `chezmoi apply` will write `kilo.jsonc` into `~/.config/kilo/` automatically.
 
 ### Tools shipped through chezmoi
 
-The dotfiles repo also distributes small helper scripts that every
-Kilo session (and you, from PowerShell) should be able to call.  These
-live under `dot_config/kilo/tools/` in this repo and install to
-`~/.config/kilo/tools/` on every machine:
+The dotfiles repo also distributes small helper scripts that every Kilo session (and you) should be able to call. These live under `dot_config/kilo/tools/` and `dot_config/kilo/hooks/` in this repo and install to `~/.config/kilo/` on every machine.
 
-| Script | What it does |
-|--------|--------------|
-| `obsidian-relink.ps1` | Points an Obsidian vault's plugin loader (`<vault>/.obsidian/plugins/<id>`) at any checkout (main or an Agent Manager worktree).  Handles junction removal/re-creation safely; idempotent if already pointing at the requested path.  The global `AGENTS.md` rule references this script whenever a Kilo agent needs to relink the vault during testing. |
+| Script / Hook | What it does | Platform |
+|---------------|--------------|----------|
+| `hooks/commit-msg` | Git hook that rejects commit messages whose body paragraphs are hard-wrapped. Invoked automatically by git on every `git commit` in every repo (wired up via `git config --global core.hooksPath ~/.config/kilo/hooks`). The hook is a bash wrapper that calls a PowerShell body; it needs `pwsh` (PowerShell Core) installed on macOS/Linux, and works with Windows PowerShell 5.1+ on Windows. | All |
+| `tools/obsidian-relink.ps1` | Points an Obsidian vault's plugin loader at any checkout by re-creating the OS-appropriate link. On Windows, uses junctions (`New-Item -ItemType Junction`); on macOS/Linux, uses symlinks (`ln -s`). The PowerShell script is Windows-only; macOS/Linux users should use the manual `ln -sfn` command documented in `AGENTS.md`. | Windows (primary); macOS/Linux (manual equivalent) |
 
-To add a new tool to this set, drop it under `dot_config/kilo/tools/`
-in this repo, commit, push, and `chezmoi apply`.  Every future machine
-picks it up automatically.
+To add a new tool to this set, drop it under `dot_config/kilo/tools/` in this repo, commit, push, and `chezmoi apply`. Every future machine picks it up automatically.
 
-Do **not** install tool scripts by hand into `~/.local/bin/` or
-`C:\scripts\` as a one-off — they will drift out of sync across
-machines.  Keep them here.
+Do **not** install tool scripts by hand into `~/.local/bin/` or `C:\scripts\` as a one-off — they will drift out of sync across machines. Keep them here.
+
+### Setting up the git commit-msg hook
+
+The `commit-msg` hook is installed by chezmoi into `~/.config/kilo/hooks/`, but git needs one extra config step to know where to find it. Run this once per machine:
+
+```sh
+git config --global core.hooksPath "$HOME/.config/kilo/hooks"
+```
+
+(On Windows, Git Bash or PowerShell will resolve `$HOME` correctly; use `$env:USERPROFILE` in PowerShell if you prefer.)
+
+After this, every `git commit` in every repo on the machine is checked by the hook. The hook is **cross-platform** — it works on Windows (PowerShell 5.1+), macOS, and Linux (pwsh).
 
 ### Asking Kilo what rules it loaded
 
@@ -199,6 +228,7 @@ is a different file).
 The recommended sequence matches the natural order of setting up a
 fresh machine:
 
+**Windows:**
 ```powershell
 # 1. Install VS Code, then the Kilo Code extension from the Marketplace.
 #    Opening Kilo once creates ~/.config/kilo/ with a default kilo.jsonc.
@@ -214,11 +244,57 @@ winget install twpayne.chezmoi --accept-source-agreements
 chezmoi init https://github.com/notuntoward/kilo-dotfiles.git
 chezmoi apply
 
-# 4. Verify
+# 4. Wire up the commit-msg hook globally
+git config --global core.hooksPath "$env:USERPROFILE\.config\kilo\hooks"
+
+# 5. Verify
 chezmoi status        # empty output == installed == source, no diff
 chezmoi diff          # also empty on a clean setup
 
-# 5. Restart Kilo. The global rules load on next session start.
+# 6. Restart Kilo. The global rules load on next session start.
+```
+
+**macOS:**
+```sh
+# 1. Install VS Code, then the Kilo Code extension from the Marketplace.
+
+# 2. Install chezmoi (one-time per machine)
+brew install chezmoi
+
+# 3. Bootstrap all managed dotfiles from this repo
+chezmoi init https://github.com/notuntoward/kilo-dotfiles.git
+chezmoi apply
+
+# 4. Wire up the commit-msg hook globally
+git config --global core.hooksPath "$HOME/.config/kilo/hooks"
+
+# 5. Verify
+chezmoi status
+chezmoi diff
+
+# 6. Restart Kilo. The global rules load on next session start.
+```
+
+**Linux:**
+```sh
+# 1. Install VS Code, then the Kilo Code extension.
+
+# 2. Install chezmoi (one-time per machine) — see https://chezmoi.io/install/
+#    for the latest method. One common approach:
+sh -c "$(curl -fsLS get.chezmoi.io)"
+
+# 3. Bootstrap all managed dotfiles from this repo
+chezmoi init https://github.com/notuntoward/kilo-dotfiles.git
+chezmoi apply
+
+# 4. Wire up the commit-msg hook globally
+git config --global core.hooksPath "$HOME/.config/kilo/hooks"
+
+# 5. Verify
+chezmoi status
+chezmoi diff
+
+# 6. Restart Kilo. The global rules load on next session start.
 ```
 
 That is everything. Do not also copy Kilo's config directories from the
