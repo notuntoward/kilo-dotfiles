@@ -114,4 +114,22 @@ verify by inspection which build the vault is loading.
 - Do NOT ask the user to test before you have verified the built
   artifact contains your edit.
 - Do NOT rely only on `git diff` against HEAD — that shows source
-  changes, not what the runtime loads.
+   changes, not what the runtime loads.
+
+## Rule: Git line endings on Windows
+
+When you run git commands on Windows, you will often see warnings like:
+`warning: LF will be replaced by CRLF the next time Git touches it`
+
+This is **normal and expected**. The user's git is configured with `core.autocrlf=true`, which is standard for Windows. Git stores files with LF internally but converts them to CRLF when checking out to disk (so editors see Windows-style line endings). The warning fires whenever git stages a text file that lacks an explicit `.gitattributes` entry.
+
+**What you must do:**
+
+- **Ignore the warnings.** They are informational, not errors. Do not stop what you're doing, do not ask the user to fix them, and do not run `git config` commands to silence them.
+- **Respect `.gitattributes`.** If the repo has a `.gitattributes` file, it defines explicit line-ending rules for different file types. Those rules override the global `core.autocrlf` setting and must be honored.
+- **Never change the user's git config for line endings.** The global `core.autocrlf` setting is intentional. If a specific repo needs different behavior, the user should add a `.gitattributes` file to that repo, not change the global config mid-session.
+
+**If you see CRLF-related errors (not just warnings):**
+
+- EOL conversion errors (e.g., `fatal: LF would be replaced by CRLF`) mean `core.safecrlf` is set to `true` (strict mode). This is rare. Ask the user whether to relax it for that specific repo.
+- If a file has mixed line endings that cause build or test failures, flag it to the user and suggest adding an explicit entry to `.gitattributes` (e.g., `*.sh text eol=lf` for shell scripts).
