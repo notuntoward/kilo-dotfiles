@@ -1,0 +1,4 @@
+#!/bin/bash
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$SCRIPT_DIR/commit-msg.ps1" "$@"
+exit $?

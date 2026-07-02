@@ -1,0 +1,4 @@
+# Force LF line endings on shell scripts (bash hooks) regardless of platform.
+# Without this, Windows Git's autocrlf would corrupt the shebang and any
+# inline LF characters in scripts like the commit-msg hook wrapper.
+dot_config/kilo/hooks/commit-msg text eol=lf

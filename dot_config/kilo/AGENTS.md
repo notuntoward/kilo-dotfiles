@@ -15,6 +15,25 @@ these surfaces. Use blank lines between paragraphs as usual.
 If your body paragraph is long, split it into two paragraphs instead
 of wrapping one.
 
+**Self-check before outputting any commit message.** Re-read the
+message you are about to output. Does every paragraph (every block of
+text between blank lines) consist of exactly one line? If not, fix it
+immediately. This rule is frequently violated by AIs that default to
+hard-wrapping text at ~80 characters — the self-check is there to
+catch that habit before the message reaches the user.
+
+**Examples.**
+
+```
+BAD (hard-wrapped — do not do this):
+This paragraph explains why the change was
+made and wraps at roughly 80 characters like
+a text editor would do automatically.
+
+GOOD:
+This paragraph explains why the change was made and does not wrap at any fixed width — it is one continuous line that each client reflows natively.
+```
+
 ## Rule: When the runtime loads a pre-built bundle, verify the bundle
 after every source change
 
