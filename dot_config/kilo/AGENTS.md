@@ -4,6 +4,37 @@ These rules apply to every Kilo session, regardless of project.
 Project-level `AGENTS.md` files are loaded *after* this one and may
 override or supplement any rule below.
 
+# CRITICAL: Execution Guardrails (Read First!)
+
+To prevent loop-failures, wasted tokens, and command execution errors, you MUST adhere to these strict execution rules:
+
+### 1. Git Commit Message Hard-Wrapping (Strict Hook Enforced!)
+Assume the repository has a strict git hook that REJECTS any commit message containing a newline (`\n` / hard-wrap) in the middle of a paragraph. 
+* **The Rule:** If you write a commit message body, EVERY paragraph must be a single, long, continuous line of text with absolutely no manual line breaks.
+* **How to execute:** If your terminal execution tool supports flags, use them carefully. When typing commit messages, do not press Enter mid-sentence.
+* **Self-Check:** If your commit command fails due to a hook, **DO NOT** rewrite the code. Simply re-run the `git commit` command using a strictly single-line message (e.g., `git commit -m "feat: your title" -m "Your entire continuous body paragraph here with no manual wrapping."`).
+
+### 2. Windows CLI Environments & Unix Commands (Escaping Guardrails)
+If the workspace runs on a **Windows** machine. You have access to Unix/Linux ports (like `sed`, `awk`, and `grep`) via the system path. You can use them when appropriate but you must adhere to Windows-specific quoting laws to avoid mangling files:
+
+* **No Single Quotes for Tool Arguments:** PowerShell and CMD handle single quotes differently than Bash when launching external `.exe` files. 
+  * ❌ **DO NOT RUN:** `sed -i 's/foo/bar/g' file.txt` (The single quotes will often be passed literally or parsed incorrectly by the Windows console host).
+  * **DO RUN:** Wrap the command in double-quotes:
+     ```powershell
+     # Use double quotes for the sed expression
+     sed -i "s/foo/bar/g" file.txt
+     ```
+* **Be Careful with `sed -i` on Windows:** Native Windows ports of `sed` sometimes fail to create the temporary file required for in-place editing (`-i`), resulting in "permission denied" or empty files. 
+  * If a `sed -i` command fails, immediately fall back to redirecting output or using PowerShell's robust in-memory replacement:
+    ```powershell
+    (Get-Content file.txt) -replace 'foo', 'bar' | Set-Content file.txt
+    ```
+* **Escaping Double Quotes:** If your tool command *must* include double quotes inside a double-quoted PowerShell string, escape them by doubling them up (`""`):
+  ```powershell
+  # Match literal "foo" and replace with "bar"
+  sed -i "s/""foo""/""bar""/g" file.txt
+  ```
+
 ## Rule: Commit messages — no hard-wrap within paragraphs
 
 Each paragraph in a commit message must sit on a single line. Do not
@@ -135,3 +166,32 @@ Either way, this is **normal and expected** on both platforms. The warning fires
 
 - Strict-safety errors (e.g., `fatal: LF would be replaced by CRLF`) mean `core.safecrlf` is set to `true`. This is rare and OS-dependent. Ask the user whether to relax it for that specific repo.
 - If a file has mixed line endings that cause build or test failures, flag it to the user and suggest adding an explicit entry to `.gitattributes` (e.g., `*.sh text eol=lf` for shell scripts across all platforms).
+## Rule: Prevent Code Duplication (DRY) and Manage Code Churn
+
+AIs have a strong bias toward writing duplicate or near-verbatim code blocks because copying-and-pasting feels like the fastest path to "job done." This introduces high maintenance overhead and bugs when only one copy is updated later. 
+
+You must actively resist this habit. Balance the trade-off between clean, DRY (Don't Repeat Yourself) code and minimizing high-risk, wide-reaching code changes.
+
+### 1. The Pre-Write Search (Find Existing Code First)
+Before writing any new logic, helper function, or utility block, search the codebase to see if:
+- This exact logic (or a highly similar variation) already exists.
+- An existing function can be cleanly extended with an optional parameter rather than writing a new one.
+
+### 2. Duplication vs. Churn Trade-off Matrix
+When deciding whether to duplicate, refactor, or extract, follow this decision matrix:
+
+| Scenario | Action | Why? |
+| :--- | :--- | :--- |
+| **Identical complex logic is needed in multiple places** | **Extract** to a shared helper function (local module or shared utility file). | Avoids future drift and desynced bugs. |
+| **Simple, trivial 1-2 lines (e.g., standard mapping)** | **Keep inline** if extraction adds unnecessary abstraction layers. | Avoids over-engineering simple tasks. |
+| **Refactoring requires modifying dozens of unrelated files** | **Localize** the shared code to the immediate module or use a targeted helper. | Limits the blast radius and reduces bug risk. |
+
+### 3. Rules for Extracting Code
+If you extract logic to a helper function:
+- **Keep it cohesive:** Put it in the closest logical shared parent file or a dedicated utility file.
+- **Do not half-bake it:** If you find duplicate code while implementing a feature, don't just add a *third* copy. Refactor the existing duplicates into the new helper as part of your task.
+### 4. Self-Check Before Writing Code
+Before outputting any code, pause and perform this mental self-check:
+1. *Did I just write or copy-paste a block of logic that already exists elsewhere in the workspace?*
+2. *If someone changes this logic tomorrow, will they have to change it in more than one place because of my code?*
+3. *If yes, how can I cleanly extract this into a single reusable helper with the lowest possible blast radius?*
