@@ -1,197 +1,409 @@
 # Global agent rules
 
-These rules apply to every Kilo session, regardless of project.
-Project-level `AGENTS.md` files are loaded *after* this one and may
-override or supplement any rule below.
+These rules apply to every Kilo session. Project-level `AGENTS.md` files are
+loaded after this file and may supplement or override these rules.
 
-# CRITICAL: Execution Guardrails (Read First!)
+## Rule: Conditional rules
 
-To prevent loop-failures, wasted tokens, and command execution errors, you MUST adhere to these strict execution rules:
+A rule that names a technology, artifact, tool, package manager, or workflow
+applies only after verifying that the current repository uses it.
 
-### 1. Git Commit Message Hard-Wrapping (Strict Hook Enforced!)
-Assume the repository has a strict git hook that REJECTS any commit message containing a newline (`\n` / hard-wrap) in the middle of a paragraph. 
-* **The Rule:** If you write a commit message body, EVERY paragraph must be a single, long, continuous line of text with absolutely no manual line breaks.
-* **How to execute:** If your terminal execution tool supports flags, use them carefully. When typing commit messages, do not press Enter mid-sentence.
-* **Self-Check:** If your commit command fails due to a hook, **DO NOT** rewrite the code. Simply re-run the `git commit` command using a strictly single-line message (e.g., `git commit -m "feat: your title" -m "Your entire continuous body paragraph here with no manual wrapping."`).
+When a rule does not apply, skip it silently. Do not install tools, create
+configuration, or change project structure merely to satisfy an inapplicable
+rule.
 
-### 2. Windows CLI Environments & Unix Commands (Escaping Guardrails)
-If the workspace runs on a **Windows** machine. You have access to Unix/Linux ports (like `sed`, `awk`, and `grep`) via the system path. You can use them when appropriate but you must adhere to Windows-specific quoting laws to avoid mangling files:
+## Rule: Updating these global rules
 
-* **No Single Quotes for Tool Arguments:** PowerShell and CMD handle single quotes differently than Bash when launching external `.exe` files. 
-  * ❌ **DO NOT RUN:** `sed -i 's/foo/bar/g' file.txt` (The single quotes will often be passed literally or parsed incorrectly by the Windows console host).
-  * **DO RUN:** Wrap the command in double-quotes:
-     ```powershell
-     # Use double quotes for the sed expression
-     sed -i "s/foo/bar/g" file.txt
-     ```
-* **Be Careful with `sed -i` on Windows:** Native Windows ports of `sed` sometimes fail to create the temporary file required for in-place editing (`-i`), resulting in "permission denied" or empty files. 
-  * If a `sed -i` command fails, immediately fall back to redirecting output or using PowerShell's robust in-memory replacement:
-    ```powershell
-    (Get-Content file.txt) -replace 'foo', 'bar' | Set-Content file.txt
-    ```
-* **Escaping Double Quotes:** If your tool command *must* include double quotes inside a double-quoted PowerShell string, escape them by doubling them up (`""`):
-  ```powershell
-  # Match literal "foo" and replace with "bar"
-  sed -i "s/""foo""/""bar""/g" file.txt
-  ```
+This file is managed by the `notuntoward/kilo-dotfiles` repository through
+chezmoi. When the user asks to add, remove, or revise a global rule, explain
+that the canonical source and user instructions are in that repository's
+`README.md`:
 
-## Rule: Commit messages — no hard-wrap within paragraphs
+https://github.com/notuntoward/kilo-dotfiles
 
-Each paragraph in a commit message must sit on a single line. Do not
-insert newlines mid-sentence. Different clients (terminal git log,
-GitHub web UI, GUI git clients) render commit messages at different
-line widths; mid-paragraph hard-wraps produce ragged reflows across
-these surfaces. Use blank lines between paragraphs as usual.
+Do not edit the installed `~/.config/kilo/AGENTS.md` directly unless the user
+explicitly requests a temporary local change. For a persistent change, edit the
+tracked source file, apply it with chezmoi, commit it, and push it.
 
-If your body paragraph is long, split it into two paragraphs instead
-of wrapping one.
+Do not run chezmoi commands, modify global Git configuration, commit, or push
+this dotfiles repository unless the user explicitly asks.
 
-**Self-check before outputting any commit message.** Re-read the
-message you are about to output. Does every paragraph (every block of
-text between blank lines) consist of exactly one line? If not, fix it
-immediately. This rule is frequently violated by AIs that default to
-hard-wrapping text at ~80 characters — the self-check is there to
-catch that habit before the message reaches the user.
+## Rule: Resolve uncertainty; do not loop
 
-**Examples.**
+Do not repeatedly speculate about a technical cause, solution, user intent, or
+preference without taking action that could resolve the uncertainty.
 
+When an important question blocks progress:
+
+1. State the specific question or competing hypotheses internally and identify
+   the cheapest reliable way to distinguish them.
+2. Prefer existing automated tests, targeted unit tests, type checks, static
+   inspection, repository search, documentation, or a minimal reproducible
+   check over reasoning from assumptions.
+3. If an existing test can answer the question, run it. If no suitable test
+   exists, add a small, focused temporary or permanent test when that is
+   proportionate to the change and supported by the project.
+4. Use logging or other runtime instrumentation only when automated checks,
+   static inspection, and existing tests cannot answer the question reliably.
+5. Remove temporary diagnostic code before completion unless the user asks to
+   retain it or it provides durable, low-noise observability.
+6. If the answer requires an action only the user can perform, ask one focused
+   question or request one specific diagnostic result. State exactly what the
+   user should do, what output to provide, and how it will decide the next
+   step.
+
+Do not continue a back-and-forth of “maybe,” “wait,” “but,” or equivalent
+speculation after a practical discriminating check or focused user question has
+been identified.
+
+When the uncertainty is about the user's desired behavior rather than a
+technical fact, do not implement a guess after reasonable repository inspection
+fails to resolve it. Ask the user the single question most likely to unblock the
+decision.
+
+## Rule: Prevent duplication and unnecessary churn
+
+Before adding logic, a helper, or a utility, search the repository for existing
+equivalent or closely related code.
+
+- Reuse or extend existing code when it is a clean fit.
+- Extract identical complex logic used in multiple locations into a cohesive,
+  nearby shared helper.
+- Keep trivial one- or two-line logic inline when an abstraction would add
+  unnecessary complexity.
+- If a broad refactor would touch many unrelated files, prefer a targeted
+  local helper that limits the blast radius.
+- Do not add a third copy of existing logic; when practical, consolidate
+  existing duplicates as part of the change.
+
+Before writing code, check whether the same behavior already exists and whether
+a later change would require maintaining multiple copies.
+
+## Rule: Git commit messages
+
+Before generating or creating a commit message, verify this rule again.
+
+### Hook integrity is mandatory
+
+Never use `--no-verify`, `--no-verify=true`, an environment-variable bypass,
+a direct hook-invocation bypass, or any other mechanism that skips Git hooks.
+
+A hook rejection is a validation failure, not permission to bypass validation.
+Fix the commit message or ask the user for guidance. Do not use a bypass even
+if the user previously mentioned a failed hook, a time constraint, or a desire
+to commit quickly.
+
+Before every `git commit`, inspect the command itself and confirm that it does
+not contain `--no-verify` or another hook-bypass mechanism.
+
+### Newlines and structure
+
+Commit messages have two kinds of newlines:
+
+- **Structural newlines are required.** Use them for the blank line after the
+  subject, paragraph boundaries, and the beginning of every bullet item.
+- **Typographic hard-wrap newlines are forbidden.** Do not insert a newline
+  merely to keep a paragraph or bullet within a screen-width limit.
+
+Never solve a hard-wrap-hook failure by collapsing multiple bullets, paragraphs,
+or distinct changes into one prose paragraph. Preserve the logical structure of
+the message and remove only prohibited line breaks within individual paragraphs
+or individual bullet items.
+
+### Required structure
+
+1. Use an imperative subject line of 72 characters or fewer.
+2. Follow the subject with exactly one blank line.
+3. Use a concise one-line overview paragraph only when it adds useful context.
+4. When a commit contains two or more independent material changes, the body
+   must contain a bullet list with one bullet for each material change.
+5. Put each bullet on its own physical line, beginning with `- `.
+6. Each prose paragraph and each bullet item must occupy exactly one physical
+   line in the literal Git message payload.
+7. Separate an overview paragraph from a bullet list with exactly one blank
+   line.
+8. Do not replace a required bullet list with a single long summary paragraph.
+9. Do not merge bullets, omit bullets, or combine distinct changes merely to
+   shorten the message or avoid a hard-wrap failure.
+10. Visual terminal wrapping is not a newline. Only actual newline characters
+    in the submitted message count as lines.
+
+### Required body patterns
+
+Use a one-paragraph body only when there is one cohesive change:
+
+```text
+Improve global Kilo rule documentation
+
+Clarify how chezmoi-managed global rules are edited, applied, and verified.
 ```
-BAD (hard-wrapped — do not do this):
-This paragraph explains why the change was
-made and wraps at roughly 80 characters like
-a text editor would do automatically.
 
-GOOD:
-This paragraph explains why the change was made and does not wrap at any fixed width — it is one continuous line that each client reflows natively.
+Use an overview plus bullets when the commit contains multiple distinct changes:
+
+```text
+Improve global Kilo rules and documentation
+
+Clarify the global-rule workflow and make technology-specific instructions conditional.
+
+- Reorganize AGENTS.md around conditional rules and completion checks
+- Add uncertainty-resolution guidance that favors decisive tests over speculation
+- Document Obsidian runtime diagnostics and runtime-artifact verification
+- Rewrite README.md with editor-first chezmoi, setup, and troubleshooting instructions
 ```
 
-## Rule: When the runtime loads a pre-built bundle, verify the bundle
-after every source change
+The bullets are separate structural elements. They must remain separate lines
+even if the hook rejects another paragraph for hard wrapping.
 
-If this project produces a pre-built artifact that the runtime loads
-directly (not built at install time) — e.g. an Obsidian plugin's
-`main.js`, a browser extension's `dist/`, a VS Code extension's
-`out/`, a compiled binary — you MUST:
+### Mandatory pre-commit message preflight
 
-Run `npm run build` (or the relevant build command) after any edit to
-source files.
+Before running `git commit`, inspect the exact message text that will be passed
+to Git. Do not infer correctness from an outline, summary, or visually wrapped
+terminal display.
 
-Grep the built artifact for a fingerprint of your change: a new
-string literal, an updated regex, a renamed identifier, a changed
-test assertion. `git diff` against HEAD is not enough — you want
-evidence that the *bundle on disk*, which is what the user's runtime
-actually loads, reflects your change.
+For every prose paragraph in the body:
 
-Do this before declaring the task complete or asking the user to
-test. Both of the following failure modes have already happened in
-real sessions and cost user time and agent credits:
+- It must occupy exactly one physical line in the Git message payload.
+- If it is too long, shorten it or split it into two separate paragraphs with a
+  blank line between them.
+- Never press Enter inside a prose paragraph.
+- Never rely on terminal visual wrapping as an actual newline check.
 
-- The agent edited TypeScript but did not build, so the user reloaded
-  the plugin and saw no change.
-- The agent ran `npm run build`, the build silently failed (lint or
-  type error), the agent did not notice, and the bundle on disk was
-  unchanged.
+For every bullet item:
 
-A post-build grep catches both.
+- It must start on its own physical line with `- `.
+- It must occupy exactly one physical line in the Git message payload.
+- Do not merge separate bullet items to avoid a hard-wrap rejection.
 
-### OS-specific paths and commands
+Before committing, verify this exact structure:
 
-Kilo runs on Windows, macOS, and Linux. When these instructions or repo-level AGENTS.md files refer to paths, environment variables, or shell syntax, use the appropriate form for the current platform:
+- One subject line.
+- One blank line after the subject.
+- Zero or more one-line prose paragraphs, separated by blank lines.
+- Zero or more one-line bullets, each on its own line.
+- No other newlines.
+- No hook-bypass option or mechanism.
 
-| Concept | Windows (PowerShell) | macOS / Linux (Bash/zsh) |
-|---------|----------------------|--------------------------|
-| User home | `$env:USERPROFILE\` | `$HOME/` or `~/` |
-| Config dir | `$env:USERPROFILE\.config\kilo\` | `~/.config/kilo/` |
-| Shared tools | `& "$env:USERPROFILE\.config\kilo\tools\<script>.ps1"` | `$HOME/.config/kilo/tools/<script>.ps1` or equivalent |
-| Vault plugin dir | `<vault>\.obsidian\plugins\<id>\` | `<vault>/.obsidian/plugins/<id>/` |
-| Symlinks + junctions | junctions (`New-Item -ItemType Junction`) via PowerShell, or symlinks with `mklink /D` in cmd | symlinks (`ln -s target link`) |
+### Commit command construction
 
-When you need the user to run a command on their machine, use the form that matches their shell. If a repo ships a PowerShell helper (e.g., `obsidian-relink.ps1`), the macOS/Linux equivalent is usually a direct `ln -s` of the same target — see the Obsidian worktree section below for specifics.
+When the message contains a bullet list, multiple body paragraphs, or any
+intentional structural newline, create a temporary commit-message file and use
+`git commit -F <file>`.
 
-### When building an Obsidian plugin inside a git worktree
+Do not use a single multiline `git commit -m "..."` argument for a structured
+message. Do not collapse a required bullet list into one `-m` paragraph.
 
-Obsidian's vault loads plugins from `<vault>/.obsidian/plugins/<id>`, which is typically a link to the main checkout's plugin folder. On Windows, this is a **junction**; on macOS and Linux, it is a **symlink**. When the agent builds `main.js` inside a worktree (`.kilo/worktrees/<name>/`), the vault continues loading the main checkout's `main.js` — the user sees no change. The fix must point the link at the freshly-built checkout.
+Before committing, print or inspect the message file line by line. Confirm:
 
-When you need the user to reload a worktree build in real Obsidian, do one of:
+- The subject is one line.
+- The next line is blank.
+- Every prose paragraph is one physical line.
+- Every bullet starts with `- ` and occupies one physical line.
+- Blank lines are the only non-bullet structural lines after the subject.
+- The commit command does not include `--no-verify`.
 
-1. **Prefer `local` mode for Agent Manager fan-outs.** Changes land in the main checkout and the existing link keeps working. Only use `worktree` mode when session isolation is required (conflicting edits, multi-branch experiments).
+After a successful commit, delete the temporary message file.
 
-2. **If the work is in an Agent Manager worktree and isolation was needed,** finish tests inside the worktree (Vitest/Playwright resolve to `main.ts` and are unaffected), then ask the user to run `Agent Manager Apply` and `npm run build` in the main checkout.
+### Required PowerShell pattern for structured messages
 
-3. **If the vault must be re-pointed at the worktree now,** use the shared relink script:
+When running in PowerShell, create a temporary message file under `.git`:
 
-   **Windows (PowerShell):**
-   ```powershell
-   & "$env:USERPROFILE\.config\kilo\tools\obsidian-relink.ps1" `
-       -Source "$worktreePath"
-   ```
-   The vault path is auto-discovered from common locations, or pass `-Vault <path>` explicitly.
+```powershell
+$messageFile = ".git\kilo-commit-message.txt"
+@'
+Subject line in imperative mood
 
-   **macOS / Linux:**
-   There is currently no `obsidian-relink.sh`. Repoint the vault plugin link manually:
-   ```sh
-   # Remove the old link/symlink at <vault>/.obsidian/plugins/<id>,
-   # then create a symlink to the worktree's plugin folder.
-   ln -sfn "$worktreePath" "<vault>/.obsidian/plugins/<id>"
-   ```
-   Substitute your actual vault path for `<vault>` and plugin id for `<id>` (read from the worktree's `manifest.json` `id` field). On macOS, the vault is commonly in `~/Documents/` or via iCloud (`~/Library/Mobile Documents/...`); on Linux it is typically `~/Documents/`.
+One-line overview paragraph, if useful.
 
-Always print the full filesystem path of the built `main.js` before the user-reload instruction. That way, if anything goes wrong, the user can verify by inspection which build the vault is loading.
+- One material change per bullet, on one physical line
+- Another material change, on one physical line
+'@ | Set-Content -NoNewline $messageFile
 
-### What NOT to do
+Get-Content $messageFile
+git commit -F $messageFile
+Remove-Item $messageFile
+```
 
-- Do NOT ask the user to manually remove the existing link and create a new one, *unless* you've already given them the exact platform-appropriate command (PowerShell junction delete on Windows, `ln -sfn` on macOS/Linux). The Windows relink script exists and handles edge cases for junctions; do not invent your own Windows procedure on that platform.
-- Do NOT assume a fresh build in a worktree automatically updated `<vault>/.obsidian/plugins/<id>/main.js`.
-- Do NOT assume `npm run build` succeeded without checking its exit status.
-- Do NOT declare a task done without grepping the built artifact for evidence that the change landed.
-- Do NOT ask the user to test before you have verified the built artifact contains your edit.
-- Do NOT rely only on `git diff` against HEAD — that shows source changes, not what the runtime loads.
+Do not add `--no-verify`. Do not use `git commit -m` for a structured message
+when this pattern applies.
 
-## Rule: Git line-endings warnings
+### Hook rejection procedure
 
-When you run git commands, you may see informational warnings about line-ending conversion. The direction depends on the platform's `core.autocrlf` (or `core.eol`) setting:
+If the commit hook identifies specific hard-wrapped paragraphs:
 
-- **Windows** (`core.autocrlf=true` is standard): `warning: LF will be replaced by CRLF the next time Git touches it` — git stores LF internally but checks out CRLF so Windows editors see correct line endings.
-- **macOS / Linux** (usually `core.autocrlf` unset or `input`): `warning: CRLF will be replaced by LF the next time Git touches it` — same idea in the opposite direction, typically hit when a repo contains files previously committed with CRLF.
+1. Identify whether each named item is a prose paragraph or one bullet item.
+2. Rewrite only that named item as one physical line.
+3. Keep blank lines, paragraph boundaries, and separate bullets unchanged.
+4. Inspect the message file again before recommitting.
+5. Re-run `git commit -F <message-file>` without a hook bypass.
+6. Do not rewrite code because the commit-message hook rejected formatting.
 
-Either way, this is **normal and expected** on both platforms. The warning fires whenever git stages a text file whose current on-disk EOL does not match what the repo's conversion rules say is canonical, and the file lacks an explicit `.gitattributes` entry pinning its EOL.
+## Rule: Windows command-line safety
 
-**What you must do:**
+Apply this rule only when the workspace runs on Windows.
 
-- **Ignore the warnings.** They are informational, not errors. Do not stop what you're doing, do not ask the user to fix them, and do not run `git config` commands to silence them.
-- **Respect `.gitattributes`.** If the repo has a `.gitattributes` file, it defines explicit line-ending rules for different file types (e.g., `*.sh text eol=lf`, `*.bat text eol=crlf`). Those rules override the global config and must be honored.
-- **Never change the user's git config for line endings.** The global `core.autocrlf` / `core.safecrlf` settings are intentional. If a specific repo needs different behavior, the user should add a `.gitattributes` entry to that repo, not change the global config mid-session.
+Unix-style tools such as `sed`, `awk`, and `grep` may be available, but use
+Windows-safe quoting and editing practices.
 
-**If you see EOL conversion *errors* (not just warnings):**
+- Prefer double quotes for arguments passed to external Unix-style executables.
+- Do not assume Bash single-quote behavior works in PowerShell or CMD.
+- If a `sed -i` edit fails or risks an empty file, use an output-redirection
+  approach or PowerShell's in-memory replacement instead.
+- When embedding literal double quotes inside a double-quoted PowerShell string,
+  escape them as `""`.
+- Inspect the edited file after a destructive or in-place transformation.
 
-- Strict-safety errors (e.g., `fatal: LF would be replaced by CRLF`) mean `core.safecrlf` is set to `true`. This is rare and OS-dependent. Ask the user whether to relax it for that specific repo.
-- If a file has mixed line endings that cause build or test failures, flag it to the user and suggest adding an explicit entry to `.gitattributes` (e.g., `*.sh text eol=lf` for shell scripts across all platforms).
-## Rule: Prevent Code Duplication (DRY) and Manage Code Churn
+Example:
 
-AIs have a strong bias toward writing duplicate or near-verbatim code blocks because copying-and-pasting feels like the fastest path to "job done." This introduces high maintenance overhead and bugs when only one copy is updated later. 
+```powershell
+sed -i "s/foo/bar/g" file.txt
+(Get-Content file.txt) -replace 'foo', 'bar' | Set-Content file.txt
+sed -i "s/""foo""/""bar""/g" file.txt
+```
 
-You must actively resist this habit. Balance the trade-off between clean, DRY (Don't Repeat Yourself) code and minimizing high-risk, wide-reaching code changes.
+## Rule: Git line endings
 
-### 1. The Pre-Write Search (Find Existing Code First)
-Before writing any new logic, helper function, or utility block, search the codebase to see if:
-- This exact logic (or a highly similar variation) already exists.
-- An existing function can be cleanly extended with an optional parameter rather than writing a new one.
+Honor `.gitattributes`, `.editorconfig`, and the repository's established
+line-ending policy before changing Git configuration.
 
-### 2. Duplication vs. Churn Trade-off Matrix
-When deciding whether to duplicate, refactor, or extract, follow this decision matrix:
+When line-ending warnings occur on Windows:
 
-| Scenario | Action | Why? |
-| :--- | :--- | :--- |
-| **Identical complex logic is needed in multiple places** | **Extract** to a shared helper function (local module or shared utility file). | Avoids future drift and desynced bugs. |
-| **Simple, trivial 1-2 lines (e.g., standard mapping)** | **Keep inline** if extraction adds unnecessary abstraction layers. | Avoids over-engineering simple tasks. |
-| **Refactoring requires modifying dozens of unrelated files** | **Localize** the shared code to the immediate module or use a targeted helper. | Limits the blast radius and reduces bug risk. |
+- Diagnose the file's actual line endings and the repository policy.
+- Prefer `git add --renormalize .` when normalization is intended.
+- Use `git config --local`, never `--global`, if a repository-specific Git
+  setting is necessary.
+- Do not suppress warnings by redirecting stderr, disabling Git advice, or
+  changing global `core.autocrlf`.
+- If normalization would create a broad unrelated diff, tell the user and keep
+  it separate from the functional change.
+- If `core.safecrlf=true` blocks the operation, ask the user before relaxing it.
+- If mixed line endings affect builds or tests, flag the issue and recommend an
+  explicit `.gitattributes` rule where appropriate.
 
-### 3. Rules for Extracting Code
-If you extract logic to a helper function:
-- **Keep it cohesive:** Put it in the closest logical shared parent file or a dedicated utility file.
-- **Do not half-bake it:** If you find duplicate code while implementing a feature, don't just add a *third* copy. Refactor the existing duplicates into the new helper as part of your task.
-### 4. Self-Check Before Writing Code
-Before outputting any code, pause and perform this mental self-check:
-1. *Did I just write or copy-paste a block of logic that already exists elsewhere in the workspace?*
-2. *If someone changes this logic tomorrow, will they have to change it in more than one place because of my code?*
-3. *If yes, how can I cleanly extract this into a single reusable helper with the lowest possible blast radius?*
+For cross-platform repositories that store files with LF, prefer a local
+`core.autocrlf=input` configuration only when it is consistent with the
+repository's existing policy and necessary to prevent Git rewriting files.
+
+## Rule: Verify runtime-loaded build artifacts
+
+Apply this rule only when the runtime loads generated artifacts directly rather
+than building source at install time or launch.
+
+Examples include Obsidian plugins loading `main.js`, browser extensions loading
+`dist/`, VS Code extensions loading `out/`, and compiled binaries.
+
+After changing source that affects a runtime-loaded artifact:
+
+1. Run the repository's documented build command.
+2. Check that the build command succeeded.
+3. Inspect the generated artifact for a fingerprint of the change, such as a
+   string literal, identifier, regular expression, or relevant assertion.
+4. Before declaring the task complete or asking the user to test, state the
+   complete filesystem path of the verified artifact.
+
+Do not treat `git diff` as evidence that the runtime-loaded artifact was built.
+
+## Rule: Obsidian plugin worktrees
+
+Apply this rule only when all of these are true:
+
+- The repository is an Obsidian plugin.
+- The plugin is loaded from `<vault>/.obsidian/plugins/<id>`.
+- Work is occurring in a Git worktree rather than the checkout targeted by the
+  vault's plugin path.
+
+A build in a worktree can produce a correct worktree `main.js` while Obsidian
+continues loading `main.js` from the main checkout.
+
+- Prefer Agent Manager `local` mode when isolation is unnecessary.
+- Use worktree mode only when isolation is needed, such as conflicting edits or
+  multi-branch experiments.
+- When worktree isolation was used, run tests in the worktree, then prefer
+  Agent Manager Apply and a build in the main checkout before the user reloads.
+- If the vault must load the worktree immediately, use the shared relink script:
+
+```powershell
+& "$env:USERPROFILE\.config\kilo\tools\obsidian-relink.ps1" `
+    -Source "$worktreePath"
+```
+
+- Before asking the user to reload Obsidian, print the full path of the built
+  `main.js` that the vault will load.
+- Do not ask the user to remove or recreate a junction manually when the relink
+  script is available.
+- Do not assume a successful worktree build updated the vault-loaded artifact.
+
+## Rule: Obsidian runtime diagnostics
+
+Apply this rule only to Obsidian plugin repositories.
+
+When a question can be answered only by observing runtime behavior in Obsidian:
+
+1. First prefer a focused Vitest test, existing test harness, static inspection,
+   or another automated check if it can answer the question with comparable
+   confidence.
+2. If a runtime observation is necessary, add the smallest targeted diagnostic,
+   such as a uniquely identifiable `console.log`, only when it is safe and
+   likely to distinguish the competing explanations.
+3. Build and verify the artifact according to the runtime-artifact rule before
+   requesting a reload or runtime check.
+4. If the agent can access and inspect the relevant console output, perform the
+   check and use the result to proceed.
+5. If the user must perform the check, do not continue speculating. Ask the
+   user for one bounded action: reload the plugin, reproduce the behavior, and
+   provide the output matching the unique diagnostic marker.
+6. Explain what the requested result will determine, for example: “If this log
+   appears, the command is registered; if it does not, registration is not
+   reached.”
+7. Remove the diagnostic after it has served its purpose unless it is useful
+   permanent logging and the user agrees to retain it.
+
+Do not ask the user to perform a manual Obsidian console check merely because it
+is convenient. Use it only after determining that it is more informative than
+available automated checks.
+
+## Rule: Node dependency changes
+
+Apply this rule only when the repository uses npm and its CI uses `npm ci`.
+
+After editing `package.json` to add, remove, or change a dependency:
+
+1. Run `npm install` to update `package-lock.json`.
+2. Run `npm ci` to verify that the committed lockfile installs cleanly.
+3. Run the repository's relevant build and test commands.
+4. Commit `package.json` and `package-lock.json` together.
+
+Do not treat a successful `npm install` as proof that `npm ci` will succeed.
+
+Do not use `--legacy-peer-deps` or `--force` merely to bypass dependency
+conflicts. Do not change dependency versions, peer-dependency strategy, or
+package-manager choice beyond the task without user approval.
+
+Skip this rule when the repository does not use npm, does not commit a
+`package-lock.json`, or its CI does not use `npm ci`.
+
+## Rule: Python repositories
+
+Apply this rule when the repository is primarily Python.
+
+Before adding or changing dependencies, inspect the repository's declared
+workflow and lockfiles, such as `pyproject.toml`, `requirements*.txt`,
+`uv.lock`, `poetry.lock`, `Pipfile.lock`, or equivalent files.
+
+- Use the dependency manager and workflow already adopted by the repository.
+- Do not introduce a second dependency manager without user approval.
+- Update the applicable lockfile when the project's workflow requires one.
+- After source changes, run the repository's documented formatter, linter,
+  type checker, and relevant tests when available.
+- Do not declare success based only on syntax checking, importing a module, or
+  a partial test run unless that limitation is explicitly stated.
+
+## Rule: Completion checks
+
+Before declaring a task complete:
+
+- Review the diff for unintended changes.
+- Run the relevant validation commands for files changed.
+- Confirm that required generated artifacts were rebuilt and verified.
+- Report validation that was run and any validation that could not be run.
+- Do not claim a test, build, installation, or artifact verification passed
+  unless it actually completed successfully.
