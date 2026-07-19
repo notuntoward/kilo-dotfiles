@@ -407,3 +407,39 @@ Before declaring a task complete:
 - Report validation that was run and any validation that could not be run.
 - Do not claim a test, build, installation, or artifact verification passed
   unless it actually completed successfully.
+
+## Rule: A pre-push/pre-commit hook that runs `npm ci` can fail with EPERM on Windows and block the push
+
+Apply this rule when a git push fails with an `EPERM`/`unlink` on a native
+binary inside `node_modules`, or when `npm test`/`npm run build` cannot find
+`vitest` after a failed `npm ci`.
+
+On Windows, `npm ci` wipes `node_modules` and re-links native binaries such as
+`@esbuild/win32-arm64/esbuild.exe`. Antivirus/EDR commonly holds those binaries
+open, so `npm ci` fails with `EPERM ... unlink ... esbuild.exe` and the `set -e`
+hook aborts the push even though the code is fine. Worse, the failed `npm ci`
+has usually already pruned `node_modules`, so `vitest`/`eslint` are then missing
+and a later `npm test` reports the binary "not recognized".
+
+When this happens:
+
+- Treat the push failure as a local hook/environment problem, not a code
+  problem. Do not blame the commit.
+- Restore dependencies with `npm install` (non-strict) rather than `npm ci`.
+  `npm install` reuses the existing tree and avoids re-linking the locked
+  binary, so it usually completes.
+- Re-run `npm test` to confirm the code is actually green before pushing.
+
+For git hooks you control (e.g. a `pre-push` that mirrors CI), prefer running
+`npm test` directly against the already-installed `node_modules` instead of
+`npm ci`. CI still runs `npm ci` strictly on every push, so the strictness
+guarantee is preserved without risking the EPERM on the developer's machine.
+
+### What NOT to do
+
+- Do not keep a local hook that runs `npm ci` on every push on Windows — it
+  will intermittently block pushes due to the locked native binary.
+- Do not conclude the commit is broken just because the hook's `npm ci` hit an
+  EPERM. The fix is `npm install`, then retry the push.
+- Do not reach for `--legacy-peer-deps`/`--force` to get past the EPERM; that
+  addresses the wrong failure (a lock, not a peer conflict).
