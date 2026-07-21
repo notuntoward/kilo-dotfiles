@@ -63,8 +63,17 @@ decision.
 
 ## Rule: Prevent duplication and unnecessary churn
 
-Before adding logic, a helper, or a utility, search the repository for existing
-equivalent or closely related code.
+Before writing new logic, always check two layers in order:
+
+1. **Platform and ecosystem libraries first** — prefer built-in APIs and
+   well-established library methods over custom implementations. For example:
+   use Obsidian's utility APIs and CodeMirror 6 (CM6) primitives when working
+   in a plugin environment; use pandas, NumPy, or scikit-learn methods when
+   doing data analysis in Python; use standard library modules before reaching
+   for third-party packages.
+
+2. **This repository second** — search for existing equivalent or closely
+   related code before adding logic, a helper, or a utility.
 
 - Reuse or extend existing code when it is a clean fit.
 - Extract identical complex logic used in multiple locations into a cohesive,
@@ -76,8 +85,9 @@ equivalent or closely related code.
 - Do not add a third copy of existing logic; when practical, consolidate
   existing duplicates as part of the change.
 
-Before writing code, check whether the same behavior already exists and whether
-a later change would require maintaining multiple copies.
+Before writing code, confirm that the same behavior doesn't already exist in
+the platform libraries or this codebase, and that a later change won't require
+maintaining multiple copies.
 
 ## Rule: Git commit messages
 
