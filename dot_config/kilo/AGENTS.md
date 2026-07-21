@@ -98,23 +98,47 @@ not contain `--no-verify` or another hook-bypass mechanism.
 
 ### Newlines and structure
 
-Commit messages have two kinds of newlines:
+Commit messages have two kinds of newlines, and they are unrelated to file
+line-ending encoding (CRLF vs LF). CRLF/LF is about how *tracked files* store
+line breaks on disk; it has nothing to do with how a commit *message* is
+structured. Do not use CRLF/LF cleanup as a reason to add or remove newlines
+inside a commit message.
 
 - **Structural newlines are required.** Use them for the blank line after the
   subject, paragraph boundaries, and the beginning of every bullet item.
 - **Typographic hard-wrap newlines are forbidden.** Do not insert a newline
-  merely to keep a paragraph or bullet within a screen-width limit.
+  merely to keep a paragraph or bullet within a screen-width limit. A long
+  paragraph or bullet is one physical line no matter how wide it looks;
+  whatever terminal or viewer displays it wraps it visually on its own.
 
 Never solve a hard-wrap-hook failure by collapsing multiple bullets, paragraphs,
 or distinct changes into one prose paragraph. Preserve the logical structure of
 the message and remove only prohibited line breaks within individual paragraphs
 or individual bullet items.
 
+### Minimal example of correct structure
+
+```text
+Fix login redirect looping on expired sessions
+
+Expired-session requests were redirected back to the same protected page instead of the login page, which caused an infinite redirect loop.
+
+- Redirect to /login when the session check fails
+- Add a regression test for the expired-session redirect path
+```
+
+Each of the three body elements above (the overview paragraph and each bullet)
+is one single physical line in the real file, however long, with terminal
+wrapping doing the rest. This is the shape to match even when a model finds it
+hard to keep a long line from being broken up.
+
 ### Required structure
 
 1. Use an imperative subject line of 72 characters or fewer.
 2. Follow the subject with exactly one blank line.
-3. Use a concise one-line overview paragraph only when it adds useful context.
+3. Use a concise one-line overview paragraph when it adds useful context,
+   written from the user's point of view: state what changed for the user,
+   with a hint of how the change was accomplished.
 4. When a commit contains two or more independent material changes, the body
    must contain a bullet list with one bullet for each material change.
 5. Put each bullet on its own physical line, beginning with `- `.
@@ -203,9 +227,13 @@ Before committing, print or inspect the message file line by line. Confirm:
 
 After a successful commit, delete the temporary message file.
 
-### Required PowerShell pattern for structured messages
+### Required shell pattern for structured messages
 
-When running in PowerShell, create a temporary message file under `.git`:
+Use whichever shell is actually available and driving the session — do not
+force PowerShell on a bash/zsh session or vice versa. Both patterns produce
+the same result: a temporary message file passed to `git commit -F`.
+
+PowerShell:
 
 ```powershell
 $messageFile = ".git\kilo-commit-message.txt"
@@ -222,6 +250,35 @@ Get-Content $messageFile
 git commit -F $messageFile
 Remove-Item $messageFile
 ```
+
+bash/zsh:
+
+```bash
+messageFile=".git/kilo-commit-message.txt"
+cat > "$messageFile" <<'EOF'
+Subject line in imperative mood
+
+One-line overview paragraph, if useful.
+
+- One material change per bullet, on one physical line
+- Another material change, on one physical line
+EOF
+
+cat "$messageFile"
+git commit -F "$messageFile"
+rm "$messageFile"
+```
+
+The quoted heredoc delimiter (`<<'EOF'`, not `<<EOF`) matters: it prevents the
+shell from expanding `$variables`, backticks, or other content inside the
+commit message body.
+
+`Set-Content -NoNewline` (PowerShell) and a plain heredoc (bash/zsh) both avoid
+adding a stray trailing newline; neither changes how many newlines are inside
+the message body itself. Whether those inner newlines are LF or CRLF does not
+matter for commit-message structure — Git accepts either. Do not add or remove
+a newline in this file to "fix" a CRLF/LF warning; that warning is about
+tracked source files, never about a commit-message file.
 
 Do not add `--no-verify`. Do not use `git commit -m` for a structured message
 when this pattern applies.
@@ -265,14 +322,75 @@ sed -i "s/""foo""/""bar""/g" file.txt
 Honor `.gitattributes`, `.editorconfig`, and the repository's established
 line-ending policy before changing Git configuration.
 
-When line-ending warnings occur on Windows:
+### Determine the policy before normalizing anything
 
-- Diagnose the file's actual line endings and the repository policy.
+Before normalizing any file's line endings, determine the repository's
+established policy first — do not assume LF and do not run a normalization
+command blindly. Re-run this check whenever it is unclear, not just once per
+session:
+
+1. Check `git config --get core.autocrlf` (local, then global), and inspect
+   `.gitattributes` and `.editorconfig` for an explicit line-ending policy.
+2. If none of those specify a policy, infer it from how the repository's
+   existing tracked files are actually stored on disk.
+3. If the result is LF (existing files, `.editorconfig`, or `.gitattributes`
+   use LF, or `core.autocrlf=input`), this is an **LF-policy repository**.
+4. If the result is CRLF (existing files are committed with CRLF, or
+   `core.autocrlf=true`), this is a **CRLF-policy repository** — typically a
+   Windows-oriented project.
+
+The first time a repository is touched in a session, before the first `git
+add` or commit, set this policy explicitly if it is not already configured:
+
+- For an LF-policy repository, set `core.autocrlf=input` locally (on Windows
+  and macOS/Linux alike) so Git never rewrites line endings on commit, only on
+  checkout from the index.
+- For a CRLF-policy repository, set `core.autocrlf=true` so checkout
+  normalizes to CRLF on Windows but commits use CRLF.
+- Use `git config --local`, never `--global`, so this only affects the
+  repository being worked in. Do not touch the user's global Git config or
+  override their preferred cross-platform line-ending policy.
+- Re-normalize any files Git would otherwise rewrite with
+  `git add --renormalize .` (or `git rm --cached` plus `git add` on older Git
+  versions), staged as a separate, clearly labeled commit if it would
+  otherwise pollute the user's diff.
+
+### Normalizing edited files
+
+Kilo's file tools may write CRLF on Windows regardless of the repository's
+policy. Only normalize a file to LF when the repository's determined policy
+(from the previous section) is LF. Never run the LF-normalization command
+without first confirming the policy — doing so on a CRLF-policy repository
+fights the repository's own established convention and produces the exact
+"LF will be replaced by CRLF" warning this rule exists to prevent.
+
+For an LF-policy repository, normalize a file to LF immediately after
+creating or editing it with the Write or Edit tool, before running any git
+command, rather than waiting for `git status` or `git diff` to report the
+mismatch. On Windows, for a single file:
+
+```powershell
+$content = Get-Content -Raw -Path "path/to/file"
+$content -replace "`r`n", "`n" | Set-Content -NoNewline -Path "path/to/file"
+```
+
+For a CRLF-policy repository, do not run that normalization, and do not treat
+a "LF will be replaced by CRLF" warning as a problem — it means Git is
+correctly applying the repository's own policy on commit.
+
+### When a line-ending warning occurs mid-session
+
+- Diagnose the file's actual line endings against the repository's determined
+  policy before acting.
+- If the file's endings already match the policy, the warning is
+  informational; leave the file alone.
+- If the file's endings do not match the policy, fix the offending file in
+  place and re-stage it before continuing.
 - Prefer `git add --renormalize .` when normalization is intended.
 - Use `git config --local`, never `--global`, if a repository-specific Git
   setting is necessary.
-- Do not suppress warnings by redirecting stderr, disabling Git advice, or
-  changing global `core.autocrlf`.
+- Do not suppress the warning by redirecting stderr, disabling Git advice (for
+  example `advice.addIgnoredFile=false`), or changing global `core.autocrlf`.
 - If normalization would create a broad unrelated diff, tell the user and keep
   it separate from the functional change.
 - If `core.safecrlf=true` blocks the operation, ask the user before relaxing it.
@@ -364,6 +482,11 @@ available automated checks.
 ## Rule: Node dependency changes
 
 Apply this rule only when the repository uses npm and its CI uses `npm ci`.
+
+`npm install` is permissive and can silently rewrite the lockfile to resolve a
+peer-dependency conflict, while `npm ci` installs strictly from the committed
+lockfile and fails immediately on the same conflict. Catching that failure
+locally avoids finding out only when CI goes red.
 
 After editing `package.json` to add, remove, or change a dependency:
 
