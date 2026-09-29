@@ -56,14 +56,17 @@ that the current repository uses the relevant technology or workflow.
 ├── .gitattributes              # Defines repository line-ending policy
 ├── .gitignore                  # Keeps OS and editor junk out of Git
 ├── README.md                   # This documentation
-└── dot_config/
-    └── kilo/
-        ├── AGENTS.md           # Global Kilo rules
-        ├── hooks/
-        │   ├── commit-msg      # Git hook entry point
-        │   └── commit-msg.ps1  # PowerShell hook implementation
-        └── tools/
-            └── obsidian-relink.ps1  # Obsidian plugin relinking helper
+├── dot_config/
+│   └── kilo/
+│       ├── AGENTS.md           # Global Kilo rules (source of truth)
+│       ├── hooks/
+│       │   ├── commit-msg      # Git hook entry point
+│       │   └── commit-msg.ps1  # PowerShell hook implementation
+│       └── tools/
+│           └── obsidian-relink.ps1  # Obsidian plugin relinking helper
+└── dot_gemini/
+    └── config/
+        └── AGENTS.md.tmpl      # Antigravity IDE global rules (includes dot_config/kilo/AGENTS.md)
 ```
 
 chezmoi maps `dot_config/` in the source repository to `~/.config/` in the

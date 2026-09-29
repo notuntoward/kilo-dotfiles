@@ -419,12 +419,39 @@ than building source at install time or launch.
 Examples include Obsidian plugins loading `main.js`, browser extensions loading
 `dist/`, VS Code extensions loading `out/`, and compiled binaries.
 
+### Fast inner-loop bundling vs final gate
+
+Composite build commands (e.g. `npm run build`) often chain linters and typecheckers,
+taking 15–30s. During iterative code edits, use the fastest path to bundle the artifact:
+
+1. **Check `package.json` scripts**: Look for `bundle`, `build:fast`, or `compile`.
+2. **Inspect composite `build` scripts**: If `build` is a chain (e.g. `npm run lint && tsc && node esbuild.config.mjs production`),
+   invoke only the final bundler command directly during iteration (e.g., `node esbuild.config.mjs production`
+   in standard Obsidian plugins takes < 1s).
+3. **Completion gate**: Run the full repository validation commands (e.g. `npm run check`,
+   `npm run test:run`, or `npm run build`) once before declaring the task done.
+
+### Minification and fingerprint verification
+
+- **Never grep for function or variable names in minified artifacts**:
+  production bundlers (like `esbuild` or `webpack`) mangle identifiers
+  (e.g., `myFunction` becomes `Ia` or `Rt`). Always verify against a unique
+  string literal, UI text, error message, or regex snippet added by your edit.
+- **Bypass line-length buffer limits**: Minified files often have single lines exceeding
+  50KB–100KB, causing standard `grep`/`ripgrep` to report false-negative "No results found".
+  - If the repo provides a verification tool (e.g., `npm run verify -- "<fingerprint>"`), use it.
+  - Otherwise, verify with a line-length-agnostic check, e.g.:
+    `node -e "console.log(fs.readFileSync('main.js','utf8').includes('your_literal'))"`
+- Confirm the artifact's build timestamp or modification time updated recently.
+
+### Verification procedure
+
 After changing source that affects a runtime-loaded artifact:
 
-1. Run the repository's documented build command.
+1. Run the repository's fast bundling command (or documented build command).
 2. Check that the build command succeeded.
-3. Inspect the generated artifact for a fingerprint of the change, such as a
-   string literal, identifier, regular expression, or relevant assertion.
+3. Inspect the generated artifact for a unique string or regex fingerprint of
+   the change (or run the verification script).
 4. Before declaring the task complete or asking the user to test, state the
    complete filesystem path of the verified artifact.
 
