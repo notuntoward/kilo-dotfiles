@@ -2,7 +2,8 @@
 
 This repository is the source of truth for your global Kilo rules and shared
 Kilo helper scripts. chezmoi installs the global rules at
-`~/.config/kilo/AGENTS.md`.
+`~/.config/kilo/AGENTS.md` and, from the same source, the Antigravity (Gemini)
+rules at `~/.gemini/config/AGENTS.md` (see [How the Kilo and Gemini copies are connected](#how-the-kilo-and-gemini-copies-are-connected)).
 
 - To change a global rule, see [Change a global Kilo rule](#change-a-global-kilo-rule).
 - To pull a change made on another machine, see [Pull changes from another machine](#pull-changes-from-another-machine).
@@ -89,6 +90,47 @@ computer.
 
 ---
 
+## How the Kilo and Gemini copies are connected
+
+One tracked rules file feeds two installed files, so the rules are written once:
+
+```text
+Source repository (~/.local/share/chezmoi/)      Installed file                    Read by
+dot_config/kilo/AGENTS.md                  -->   ~/.config/kilo/AGENTS.md          Kilo
+dot_gemini/config/AGENTS.md.tmpl           -->   ~/.gemini/config/AGENTS.md        Antigravity (Gemini)
+  (one line: {{ include "dot_config/kilo/AGENTS.md" }})
+```
+
+- The Gemini file is a template. Its only content is a chezmoi `include` of
+  the Kilo source file, so whenever chezmoi applies it, it writes the Kilo
+  rules text into `~/.gemini/config/AGENTS.md`.
+- It is a rendered copy, not a symlink or live reference. The Gemini file
+  updates only when chezmoi applies it. Editing the Kilo source does not
+  change the Gemini file until you apply.
+- Always apply the whole repository. `chezmoi apply` with no path updates both
+  files (and the other managed files) in one step. Passing a path, such as
+  `chezmoi apply ~/.config/kilo/AGENTS.md`, updates only that file and leaves
+  the Gemini copy stale.
+
+### Update both Kilo and Gemini with one command
+
+After editing `dot_config/kilo/AGENTS.md` in the source repository:
+
+```sh
+chezmoi apply
+```
+
+To fetch changes pushed to GitHub (from another machine or a PR) and update
+both files:
+
+```sh
+chezmoi update
+```
+
+To check that nothing is pending, run `chezmoi status`; it prints nothing when
+both installed files match the source.
+
+---
 ## Day-to-day use
 
 There are two locations to keep distinct:
