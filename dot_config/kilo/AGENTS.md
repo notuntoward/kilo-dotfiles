@@ -496,24 +496,42 @@ When a question can be answered only by observing runtime behavior in Obsidian:
 1. First prefer a focused Vitest test, existing test harness, static inspection,
    or another automated check if it can answer the question with comparable
    confidence.
-2. If a runtime observation is necessary, add the smallest targeted diagnostic,
-   such as a uniquely identifiable `console.log`, only when it is safe and
-   likely to distinguish the competing explanations.
-3. Build and verify the artifact according to the runtime-artifact rule before
-   requesting a reload or runtime check.
-4. If the agent can access and inspect the relevant console output, perform the
-   check and use the result to proceed.
-5. If the user must perform the check, do not continue speculating. Ask the
-   user for one bounded action: reload the plugin, reproduce the behavior, and
-   provide the output matching the unique diagnostic marker.
-6. Explain what the requested result will determine, for example: “If this log
-   appears, the command is registered; if it does not, registration is not
-   reached.”
-7. Remove the diagnostic after it has served its purpose unless it is useful
-   permanent logging and the user agrees to retain it.
+2. If a runtime observation is necessary, prefer a read-only console snippet
+   that the user pastes into the Obsidian developer console (Ctrl+Shift+I)
+   over editing code. Typical uses: count or locate elements with
+   `document.querySelectorAll(...)`, read `getComputedStyle(el, pseudo)` values,
+   `getBoundingClientRect()`, or inspect live objects such as
+   `app.workspace` and `app.plugins.plugins['<id>']`. This needs no code change,
+   build, or reload, so it is much faster than a log round-trip.
+3. Write each snippet as one self-contained expression that returns a compact
+   value (an object or array of short strings), not many `console.log` calls.
+   Name the exact window to run it in (main window or a specific pop-out; each
+   has its own console and `document`). Do not assume it can see another
+   window's DOM.
+4. State the preconditions the user must set up first. UI such as a modal, menu,
+   or hover state usually closes or disappears when focus moves into the
+   console, so prefer snippets that inspect state that persists (for example an
+   always-present element with the same styling) rather than transient state.
+5. Explain what each possible result will determine, for example: "If the
+   count is 1, the class is applied and something is hiding it; if 0, the
+   marking logic is not reaching that element." Ask for the output of one
+   snippet at a time and do not keep speculating while waiting.
+6. Fall back to code-level diagnostics only when a console snippet cannot
+   observe the answer (for example event ordering, timing, or code paths that
+   leave no persistent state). Then add the smallest targeted diagnostic, such
+   as a uniquely identifiable `console.log`, only when it is safe and likely to
+   distinguish the competing explanations.
+7. When a code diagnostic is added, build and verify the artifact according to
+   the runtime-artifact rule before requesting a reload, and ask the user for
+   one bounded action: reload the plugin, reproduce the behavior, and provide
+   the output matching the unique diagnostic marker.
+8. If the agent itself can access and inspect the relevant console output,
+   perform the check directly and use the result to proceed.
+9. Remove any code diagnostic after it has served its purpose unless it is
+   useful permanent logging and the user agrees to retain it.
 
-Do not ask the user to perform a manual Obsidian console check merely because it
-is convenient. Use it only after determining that it is more informative than
+Do not ask the user to perform a manual console check merely because it is
+convenient. Use it only after determining that it is more informative than
 available automated checks.
 
 ## Rule: Node dependency changes
