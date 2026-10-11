@@ -28,7 +28,39 @@ tracked source file, apply it with chezmoi, commit it, and push it.
 Do not run chezmoi commands, modify global Git configuration, commit, or push
 this dotfiles repository unless the user explicitly asks.
 
-## Rule: Resolve uncertainty; do not loop
+## Debugging
+
+This section collects every rule about finding the cause of a bug, from
+deciding what to check first to instrumenting a running program. Read the
+whole section before adding logging or asking the user for diagnostics.
+
+### Order of attack
+
+Use the cheapest technique that can answer the question, and escalate only
+when it cannot:
+
+1. **Static inspection and existing tests.** Read the code, search the
+   repository, run the existing tests, type checks, and linters.
+2. **A new focused test** or a minimal reproducible check, when it is
+   proportionate to the change and supported by the project.
+3. **A read-only runtime probe** that needs no code change: a console snippet,
+   a REPL session, or an attached debugger.
+4. **Targeted temporary log markers** in the code (see "Debugging with logs").
+5. **A flight recorder** (a durable, crash-safe log of everything the program
+   does) for intermittent failures that cannot be reproduced on demand.
+6. **An out-of-process watchdog with debugger capture** for hangs and freezes,
+   where the program cannot log about itself.
+
+Choose by symptom:
+
+| Symptom | Start at step |
+|---|---|
+| Wrong value, wrong order, or a deterministic failure | 1, then 3 or 4 |
+| A UI or DOM state question in a running app | 3 (console snippet) |
+| An intermittent crash, wrong state, or freeze with no repro | 5 |
+| The app hangs and ignores input (a busy loop or a deadlock) | 5, then 6 |
+
+### Rule: Resolve uncertainty; do not loop
 
 Do not repeatedly speculate about a technical cause, solution, user intent, or
 preference without taking action that could resolve the uncertainty.
@@ -52,7 +84,7 @@ When an important question blocks progress:
    user should do, what output to provide, and how it will decide the next
    step.
 
-Do not continue a back-and-forth of “maybe,” “wait,” “but,” or equivalent
+Do not continue a back-and-forth of "maybe," "wait," "but," or equivalent
 speculation after a practical discriminating check or focused user question has
 been identified.
 
@@ -60,6 +92,175 @@ When the uncertainty is about the user's desired behavior rather than a
 technical fact, do not implement a guess after reasonable repository inspection
 fails to resolve it. Ask the user the single question most likely to unblock the
 decision.
+
+Do not build a theory on a coincidence. In one real freeze investigation the
+first suspects (a popout window, a layout command, a third-party plugin) were
+all wrong, because they were only things that happened near the failure. Prefer
+evidence captured at the moment of failure, and look for what is common to
+every failure, such as the same file being open each time.
+
+### Debugging with logs
+
+#### Targeted log markers
+
+Use these when a specific question needs one observation and the failure is
+reproducible on demand.
+
+- Add the smallest diagnostic that distinguishes the competing explanations.
+  Give every message a unique, greppable marker, and log the inputs to the
+  decision, not just that the code ran.
+- If the project loads a generated artifact, build and verify it first (see
+  the rule on runtime-loaded build artifacts) before asking the user to reload.
+- Ask the user for one bounded action: reproduce the behavior and report the
+  output matching the marker.
+- If you can read the output yourself, do so instead of asking.
+- Remove the diagnostic when it has served its purpose, unless it is useful
+  permanent logging and the user agrees to keep it.
+
+#### Obsidian plugins: read-only console snippets
+
+Apply this only to Obsidian plugin repositories. When a question can be
+answered only by observing runtime behavior in Obsidian:
+
+1. First prefer a focused Vitest test, existing test harness, static inspection,
+   or another automated check if it can answer the question with comparable
+   confidence.
+2. If a runtime observation is necessary, prefer a read-only console snippet
+   that the user pastes into the Obsidian developer console (Ctrl+Shift+I)
+   over editing code. Typical uses: count or locate elements with
+   `document.querySelectorAll(...)`, read `getComputedStyle(el, pseudo)` values,
+   `getBoundingClientRect()`, or inspect live objects such as
+   `app.workspace` and `app.plugins.plugins['<id>']`. This needs no code change,
+   build, or reload, so it is much faster than a log round-trip.
+3. Write each snippet as one self-contained expression that returns a compact
+   value (an object or array of short strings), not many `console.log` calls.
+   Name the exact window to run it in (main window or a specific pop-out; each
+   has its own console and `document`). Do not assume it can see another
+   window's DOM.
+4. State the preconditions the user must set up first. UI such as a modal, menu,
+   or hover state usually closes or disappears when focus moves into the
+   console, so prefer snippets that inspect state that persists (for example an
+   always-present element with the same styling) rather than transient state.
+5. Explain what each possible result will determine, for example: "If the
+   count is 1, the class is applied and something is hiding it; if 0, the
+   marking logic is not reaching that element." Ask for the output of one
+   snippet at a time and do not keep speculating while waiting.
+6. Fall back to code-level diagnostics (targeted log markers, above) only when
+   a console snippet cannot observe the answer, for example event ordering,
+   timing, or code paths that leave no persistent state.
+
+Do not ask the user to perform a manual console check merely because it is
+convenient. Use it only after determining that it is more informative than
+available automated checks. A console snippet cannot help once the app is
+frozen, because the window no longer responds to input, including opening
+DevTools.
+
+#### Flight recorder for intermittent failures
+
+Use a flight recorder when a failure is intermittent or depends on real user
+actions, you cannot reproduce it, and static inspection has not found the
+cause after reasonable effort. Typical cases: a freeze, a crash, or state that
+becomes corrupt "sometimes". The goal is a log the user can hand back after
+the failure, whose last lines show what was happening.
+
+How to build one:
+
+- **Write synchronously and durably.** Append one line per record with a
+  synchronous file write (for example `appendFileSync`), so the last line on
+  disk is the last thing that happened even if the process then hangs or is
+  killed. Include an ISO timestamp, a per-session id, and a sequence number.
+  Cap the file size and rotate it at startup. Put it next to the artifact or
+  another place the user can find, and keep it out of Git.
+- **Bracket every entry point.** Log `BEGIN` and `END` with the duration around
+  each user-invoked operation. Wrap command registration in one place rather
+  than editing every command. Where it is safe, also wrap the host app's
+  command dispatcher so the host's own commands are logged, and restore the
+  original on unload. A `BEGIN` with no `END` identifies what was running.
+- **Log steps and events.** Add `STEP` lines inside multi-step or asynchronous
+  operations. Log the host's events, with a counter that records a `STORM` line
+  when too many arrive in a short window. Log uncaught errors and unhandled
+  promise rejections.
+- **Log identity and structure.** Record which user data is involved, such as
+  the active file path and view type, because the common factor across several
+  failures is often the data (a single note, file, or setting), not the code
+  path. Log a compact snapshot of the relevant structure (for example the
+  workspace tree) before and after each mutation, plus an `ANOMALY` line when
+  an invariant is violated.
+- **Detect stalls without false alarms.** A timer that logs when it fires late
+  finds stalls that recover. Skip the check while the window is hidden:
+  Chromium throttles hidden-window timers to about once per minute, which looks
+  like a 59.5 second freeze but is not one. Log visibility and focus changes so
+  the log shows which case it was.
+- **Never let diagnostics break the product.** Wrap their startup in
+  `try`/`catch` so a failure only disables logging. Respect project rules about
+  forbidden APIs.
+- **Tell the user exactly what to send back**: the log file, or its tail from
+  the last session start. Read the tail yourself, and read earlier sessions too
+  because the same signature may repeat.
+
+#### Out-of-process watchdog for hangs
+
+A hung process cannot log about itself. When the app freezes and ignores the
+keyboard and mouse, add a separate watcher process:
+
+1. **Heartbeat.** The app rewrites a small file every second with the time,
+   whether the window is visible, and what it was doing (in-flight operations
+   and the last event).
+2. **Watcher.** A separate process polls the file. If it goes stale for several
+   seconds while the window is visible, the watcher appends a `FREEZE` report
+   to the log, repeats it periodically, and logs when the heartbeat resumes or
+   the app disappears.
+3. **Process sample.** In the report, sample every process of the app over two
+   seconds: CPU time delta, whether Windows reports it as responding, priority,
+   memory, and thread count. One process near one full core means a busy loop.
+   All processes near zero means a deadlock or blocked I/O. A low priority or
+   "Efficiency mode" label is Windows reacting to the spin, not the cause.
+4. **Choose the watcher carefully.** On Windows, a PowerShell script passed with
+   `-EncodedCommand` needs no extra install. Do not assume the app's own binary
+   can run as plain Node: Electron apps often disable that. Test it safely
+   with a timeout, because the wrong flag can launch the GUI.
+5. **Capture the stack of the loop.** Start the app with a debugging port (for
+   Electron, `--remote-debugging-port=9222`, bound to `127.0.0.1`). The watcher
+   must attach to every page while the app is still healthy, send
+   `Debugger.enable`, and keep the WebSocket open. A hung page cannot accept a
+   new debugger session, but an attached session can still send
+   `Debugger.pause` and interrupt JavaScript. At freeze time, send pause, read
+   the `Debugger.paused` call frames, log the top 15 or so, resume, and repeat
+   about three times. Keep draining messages, and resume any pause the watcher
+   did not request. If the pause is not delivered within about 10 seconds, the
+   loop is likely in native code rather than JavaScript, and the log should say
+   so.
+6. **Tell the user the launch command** and what to look for in the log (for
+   example a `debugger attached` line after plugin load). If the user starts the
+   app without the flag, the watcher should log that no stack is available,
+   not fail silently.
+
+The same idea applies outside Electron: a Python process can dump all thread
+stacks on a timer with `faulthandler.dump_traceback_later`, a JVM with
+`jstack`, a .NET process with a dump, and Node with `--inspect` plus
+`Debugger.pause`.
+
+#### Verify, then follow the evidence
+
+- **Test the instrumentation outside the real app first.** Run the watcher
+  against a small script that loops after a delay (for example
+  `node --inspect=9222`) and confirm the log names the looping function. Build
+  and verify the shipped artifact before asking the user to reload.
+- **Keep every test bounded.** Exponential or hanging inputs can run for
+  minutes. Use input sizes where the broken code fails in seconds, cap spawned
+  processes with a timeout, and kill any stray process you started. Do not
+  leave a test that hangs when the bug is present.
+- **Trace the top frames to their owner before blaming your own code.** Search
+  the installed third-party code for the function name, reproduce the behavior
+  standalone with timing, and shrink it to a minimal input. In the freeze that
+  produced this section, the loop was a regular expression with catastrophic
+  backtracking in a third-party plugin, triggered by one unclosed link in the
+  user's note. A short repro and a proposed fix are what an upstream project
+  can act on, and a pull request is better still when the user asks for one.
+- **Clean up.** When the investigation is over, remove the instrumentation, or
+  keep it behind an opt-in setting and out of release builds. Ask the user
+  which, and mention any background process, log file, or debugger flag that
+  remains.
 
 ## Rule: Prevent duplication and unnecessary churn
 
@@ -486,53 +687,6 @@ continues loading `main.js` from the main checkout.
 - Do not ask the user to remove or recreate a junction manually when the relink
   script is available.
 - Do not assume a successful worktree build updated the vault-loaded artifact.
-
-## Rule: Obsidian runtime diagnostics
-
-Apply this rule only to Obsidian plugin repositories.
-
-When a question can be answered only by observing runtime behavior in Obsidian:
-
-1. First prefer a focused Vitest test, existing test harness, static inspection,
-   or another automated check if it can answer the question with comparable
-   confidence.
-2. If a runtime observation is necessary, prefer a read-only console snippet
-   that the user pastes into the Obsidian developer console (Ctrl+Shift+I)
-   over editing code. Typical uses: count or locate elements with
-   `document.querySelectorAll(...)`, read `getComputedStyle(el, pseudo)` values,
-   `getBoundingClientRect()`, or inspect live objects such as
-   `app.workspace` and `app.plugins.plugins['<id>']`. This needs no code change,
-   build, or reload, so it is much faster than a log round-trip.
-3. Write each snippet as one self-contained expression that returns a compact
-   value (an object or array of short strings), not many `console.log` calls.
-   Name the exact window to run it in (main window or a specific pop-out; each
-   has its own console and `document`). Do not assume it can see another
-   window's DOM.
-4. State the preconditions the user must set up first. UI such as a modal, menu,
-   or hover state usually closes or disappears when focus moves into the
-   console, so prefer snippets that inspect state that persists (for example an
-   always-present element with the same styling) rather than transient state.
-5. Explain what each possible result will determine, for example: "If the
-   count is 1, the class is applied and something is hiding it; if 0, the
-   marking logic is not reaching that element." Ask for the output of one
-   snippet at a time and do not keep speculating while waiting.
-6. Fall back to code-level diagnostics only when a console snippet cannot
-   observe the answer (for example event ordering, timing, or code paths that
-   leave no persistent state). Then add the smallest targeted diagnostic, such
-   as a uniquely identifiable `console.log`, only when it is safe and likely to
-   distinguish the competing explanations.
-7. When a code diagnostic is added, build and verify the artifact according to
-   the runtime-artifact rule before requesting a reload, and ask the user for
-   one bounded action: reload the plugin, reproduce the behavior, and provide
-   the output matching the unique diagnostic marker.
-8. If the agent itself can access and inspect the relevant console output,
-   perform the check directly and use the result to proceed.
-9. Remove any code diagnostic after it has served its purpose unless it is
-   useful permanent logging and the user agrees to retain it.
-
-Do not ask the user to perform a manual console check merely because it is
-convenient. Use it only after determining that it is more informative than
-available automated checks.
 
 ## Rule: Node dependency changes
 

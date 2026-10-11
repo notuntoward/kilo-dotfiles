@@ -37,11 +37,13 @@ The global `AGENTS.md` contains reusable rules, including:
 
 - Commit-message formatting.
 - Avoiding duplicate code and unnecessary churn.
-- Resolving uncertainty with decisive tests or diagnostics rather than repeated
-  speculation.
+- A single Debugging section: resolving uncertainty with decisive tests rather
+  than repeated speculation, Obsidian console snippets, targeted log markers,
+  a crash-safe flight recorder for intermittent failures, and an out-of-process
+  watchdog with debugger stack capture for freezes.
 - Windows command-line safety and Git line-ending handling.
 - Verifying runtime-loaded build artifacts.
-- Obsidian plugin worktree and runtime-diagnostic workflows.
+- Obsidian plugin worktree workflows.
 - Conditional Node/npm and Python repository rules.
 
 Technology-specific rules are conditional: they apply only after Kilo verifies
