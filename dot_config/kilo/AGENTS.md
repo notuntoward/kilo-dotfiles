@@ -235,6 +235,38 @@ keyboard and mouse, add a separate watcher process:
    app without the flag, the watcher should log that no stack is available,
    not fail silently.
 
+**Obsidian: the debugging port is not on by default.** Obsidian must be
+started with the flag, or the watchdog can detect a freeze and sample CPU but
+cannot capture a stack. Give the user this exact command (Windows, default per-user install path; adjust if Obsidian was installed
+elsewhere), and ask
+them to start Obsidian this way every time until the cause is found:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Obsidian\Obsidian.exe" --remote-debugging-port=9222
+```
+
+- Close every running Obsidian first. Obsidian normally allows only one instance, so a
+  second launch is likely to hand off to the running one and the port will not
+  open. Check that the port is listening before relying on it.
+- A normal start (Start menu, taskbar, or double-clicking a vault) does not use
+  the flag. Suggest a desktop or taskbar shortcut whose target ends with
+  `--remote-debugging-port=9222` so the flag is not forgotten. In one
+  investigation the user started Obsidian normally twice, and the log said so.
+- The port listens on `127.0.0.1` only. `http://127.0.0.1:9222/json` lists the
+  pages (the main window and each pop-out) with their WebSocket URLs.
+- Verify before the user works: the log must show one `debugger attached to
+  page` line per open window shortly after plugin load. If it shows
+  `no debugger port` instead, the flag was not used, and a freeze at that point
+  gives no stack. Tell the user to restart with the flag.
+- With the port open, the agent may also attach itself to drive or observe a
+  reproduction (for example run a command and press keys over the protocol),
+  which is useful when a hang is deterministic. Keep such scripts bounded with
+  timeouts and kill any process started.
+- Do not open the stock DevTools after a freeze. A frozen window ignores
+  Ctrl+Shift+I, so advice to "open DevTools and click Pause" only works if
+  DevTools was already open, and even then is not reliable. Use the
+  pre-attached watchdog instead.
+
 The same idea applies outside Electron: a Python process can dump all thread
 stacks on a timer with `faulthandler.dump_traceback_later`, a JVM with
 `jstack`, a .NET process with a dump, and Node with `--inspect` plus
