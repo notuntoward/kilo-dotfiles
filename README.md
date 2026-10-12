@@ -1,21 +1,21 @@
-# Kilo global rules and helpers
+# Global agent rules and helpers
 
-This repository is the source of truth for your global Kilo rules and shared
-Kilo helper scripts. chezmoi installs the global rules at
-`~/.config/kilo/AGENTS.md` and, from the same source, the Antigravity (Gemini)
-rules at `~/.gemini/config/AGENTS.md` (see [How the Kilo and Gemini copies are connected](#how-the-kilo-and-gemini-copies-are-connected)).
+This repository is the source of truth for global agent rules and shared Kilo
+helper scripts. chezmoi installs the canonical rules at
+`~/.config/kilo/AGENTS.md` and renders copies for Delta at
+`~/.config/delta/AGENTS.md` and Antigravity (Gemini) at
+`~/.gemini/config/AGENTS.md`. See [the copy map](#how-the-kilo-delta-and-gemini-copies-are-connected) for details.
 
-- To change a global rule, see [Change a global Kilo rule](#change-a-global-kilo-rule).
+- To change a global rule, see [Change a global agent rule](#change-a-global-agent-rule).
 - To pull a change made on another machine, see [Pull changes from another machine](#pull-changes-from-another-machine).
 - To set up a new computer, see [Set up a new computer](#set-up-a-new-computer).
 - To diagnose a missing or stale rule, see [Troubleshooting](#troubleshooting).
 
-For a persistent change, edit the tracked source file in this repository, run
-`chezmoi apply`, then commit and push. Do not directly edit the installed
-`~/.config/kilo/AGENTS.md` file unless you intend a temporary local change.
+For a persistent change, edit the canonical source file in this repository, run
+`chezmoi apply`, then commit and push. Do not directly edit installed Kilo,
+Delta, or Gemini copies unless you intend a temporary local change.
 
 ---
-
 ## Where Kilo reads rules
 
 Kilo merges rules from several layers, from lower to higher precedence.
@@ -31,6 +31,20 @@ A later, more specific layer can supplement or override an earlier layer. Use
 the global file for durable cross-repository practices; use a project-level
 `AGENTS.md` for repository-specific commands, conventions, or known hazards.
 
+## Delta Personal AGENTS.md
+
+Delta loads the first non-empty file at `~/.config/delta/AGENT.md` or
+`~/.config/delta/AGENTS.md` as its Personal AGENTS.md. This repository manages
+the second path from `dot_config/delta/AGENTS.md.tmpl`, which includes the
+canonical `dot_config/kilo/AGENTS.md`; edit the canonical source, then run
+`chezmoi apply` to refresh all copies.
+
+Personal rules do not select or share a thread's checkout. Independent Delta
+threads can use isolated worktrees even when they attach the same project. If
+you want a thread to edit an existing local checkout, select **Existing Local
+Checkout** in Project Settings when setting up the thread, or continue in the
+thread already using that checkout. See [Delta thread workspaces and checkout identity](#delta-personal-agentsmd).
+
 ### What the global rules cover
 
 The global `AGENTS.md` contains reusable rules, including:
@@ -43,7 +57,7 @@ The global `AGENTS.md` contains reusable rules, including:
   watchdog with debugger stack capture for freezes.
 - Windows command-line safety and Git line-ending handling.
 - Verifying runtime-loaded build artifacts.
-- Obsidian plugin worktree workflows.
+- Delta thread/worktree identity and Obsidian plugin worktree workflows.
 - Conditional Node/npm and Python repository rules.
 
 Technology-specific rules are conditional: they apply only after Kilo verifies
@@ -60,6 +74,8 @@ that the current repository uses the relevant technology or workflow.
 ├── .gitignore                  # Keeps OS and editor junk out of Git
 ├── README.md                   # This documentation
 ├── dot_config/
+│   ├── delta/
+│   │   └── AGENTS.md.tmpl      # Delta Personal AGENTS.md (includes the Kilo source)
 │   └── kilo/
 │       ├── AGENTS.md           # Global Kilo rules (source of truth)
 │       ├── hooks/
@@ -92,29 +108,29 @@ computer.
 
 ---
 
-## How the Kilo and Gemini copies are connected
+## How the Kilo, Delta, and Gemini copies are connected
 
-One tracked rules file feeds two installed files, so the rules are written once:
+One tracked rules file feeds three installed files, so the rules are written
+once:
 
 ```text
 Source repository (~/.local/share/chezmoi/)      Installed file                    Read by
 dot_config/kilo/AGENTS.md                  -->   ~/.config/kilo/AGENTS.md          Kilo
+dot_config/delta/AGENTS.md.tmpl            -->   ~/.config/delta/AGENTS.md        Delta
+  (one line: {{ include "dot_config/kilo/AGENTS.md" }})
 dot_gemini/config/AGENTS.md.tmpl           -->   ~/.gemini/config/AGENTS.md        Antigravity (Gemini)
   (one line: {{ include "dot_config/kilo/AGENTS.md" }})
 ```
 
-- The Gemini file is a template. Its only content is a chezmoi `include` of
-  the Kilo source file, so whenever chezmoi applies it, it writes the Kilo
-  rules text into `~/.gemini/config/AGENTS.md`.
-- It is a rendered copy, not a symlink or live reference. The Gemini file
-  updates only when chezmoi applies it. Editing the Kilo source does not
-  change the Gemini file until you apply.
-- Always apply the whole repository. `chezmoi apply` with no path updates both
-  files (and the other managed files) in one step. Passing a path, such as
-  `chezmoi apply ~/.config/kilo/AGENTS.md`, updates only that file and leaves
-  the Gemini copy stale.
+- The Delta and Gemini files are templates. Each includes the Kilo source, so
+  chezmoi renders the same rules into the tool-specific Personal AGENTS.md path.
+- The installed files are rendered copies, not symlinks or live references.
+  Editing the Kilo source does not update them until `chezmoi apply` runs.
+- Always apply the whole repository. `chezmoi apply` with no path updates all
+  three rule files (and the other managed files) in one step. Applying only the
+  Kilo path leaves the Delta and Gemini copies stale.
 
-### Update both Kilo and Gemini with one command
+### Update all agent rule copies with one command
 
 After editing `dot_config/kilo/AGENTS.md` in the source repository:
 
@@ -123,14 +139,16 @@ chezmoi apply
 ```
 
 To fetch changes pushed to GitHub (from another machine or a PR) and update
-both files:
+every managed file:
 
 ```sh
 chezmoi update
 ```
 
 To check that nothing is pending, run `chezmoi status`; it prints nothing when
-both installed files match the source.
+the installed files match the source. Start a new Kilo session or Delta thread
+to load updated rules; an existing session keeps the instructions it already
+loaded.
 
 ---
 ## Day-to-day use
@@ -140,19 +158,19 @@ There are two locations to keep distinct:
 - **Source repository:** Usually `~/.local/share/chezmoi/`; a normal Git
   checkout of `https://github.com/notuntoward/kilo-dotfiles.git`. This is the
   authoritative version you edit and commit.
-- **Installed copy:** `~/.config/kilo/AGENTS.md`; on Windows, normally
-  `C:\Users\<user>\.config\kilo\AGENTS.md`. This is the file Kilo reads when a
-  new session starts.
+- **Installed copies:** `~/.config/kilo/AGENTS.md`, `~/.config/delta/AGENTS.md`,
+  and `~/.gemini/config/AGENTS.md`. Kilo and Delta read their copy when a new
+  session or thread starts; Gemini reads its rendered copy.
 
 The normal pattern is:
 
 1. Edit the source repository in VS Code or Emacs.
 2. Save the edit.
 3. Run `chezmoi apply` in a terminal.
-4. Start a new Kilo session.
+4. Start a new Kilo session or Delta thread.
 5. Commit and push the source-repository change.
 
-## Change a global Kilo rule
+## Change a global agent rule
 
 Use this procedure to add, remove, or revise a global rule in `AGENTS.md`.
 
@@ -230,23 +248,25 @@ chezmoi diff
 What they do:
 
 - `git diff -- dot_config/kilo/AGENTS.md` shows the source change you made.
-- `chezmoi apply` copies the source file to the installed location Kilo reads.
-- `chezmoi diff` should produce no output when the installed copy matches the
+- `chezmoi apply` updates the installed Kilo file and renders the Delta and
+  Gemini copies from the canonical source.
+- `chezmoi diff` should produce no output when all installed copies match the
   source state.
 
-### Start a new Kilo session
+### Start a new agent session
 
-Kilo loads global rules when a session starts. Start a new Kilo session after
-running `chezmoi apply`; an already running session continues using the rules it
-loaded when it began.
+Kilo and Delta load their global rules when a session or thread starts. After
+running `chezmoi apply`, start a new Kilo session or Delta thread; an existing
+session continues using the rules it already loaded. Start a new Gemini
+conversation to load its rendered copy.
 
 ### Commit and push
 
 Still in the source repository:
 
 ```sh
-git add dot_config/kilo/AGENTS.md
-git commit -m "Update global Kilo rules"
+git add dot_config/kilo/AGENTS.md dot_config/delta/AGENTS.md.tmpl README.md
+git commit -m "Update global agent rules"
 git push
 ```
 
@@ -417,22 +437,26 @@ the machine.
 
 ---
 
-## Verify Kilo's loaded rules
+## Verify loaded agent rules
 
-Inside a Kilo session, ask:
+Inside Kilo or Delta, ask:
 
 ```text
 Show me the exact set of agent rules you loaded.
 ```
 
-Use this after a new-machine setup or an AGENTS.md update. The response should
-include:
+After applying changes, start a new Kilo session or Delta thread. The loaded
+paths should include the corresponding file below:
 
 ```text
-~/.config/kilo/AGENTS.md
+Kilo:  ~/.config/kilo/AGENTS.md
+Delta: ~/.config/delta/AGENTS.md
+Gemini: ~/.gemini/config/AGENTS.md
 ```
 
-On Windows, it should include the equivalent path under your user profile.
+On Windows, these paths are under your user profile. Delta may use
+`~/.config/delta/AGENT.md` instead if that singular file exists and is
+non-empty, because it takes precedence over `AGENTS.md`.
 
 ---
 
@@ -566,7 +590,7 @@ Start a new Kilo session after setup.
 
 ### A global-rule change is not taking effect
 
-1. Confirm you edited the source file:
+1. Confirm you edited the canonical source file:
    `dot_config/kilo/AGENTS.md`.
 2. Run:
 
@@ -575,12 +599,26 @@ Start a new Kilo session after setup.
    chezmoi diff
    ```
 
-3. Start a new Kilo session.
-4. Ask Kilo:
+3. Start a new Kilo session or Delta thread.
+4. Ask Kilo or Delta:
 
    ```text
    Show me the exact set of agent rules you loaded.
    ```
+
+### Delta does not list the managed Personal AGENTS.md
+
+Verify that `~/.config/delta/AGENTS.md` exists and that
+`dot_config/delta/AGENTS.md.tmpl` still includes the canonical Kilo source.
+Run `chezmoi apply`, then start a new Delta thread. Delta loads the first
+non-empty file from `~/.config/delta/AGENT.md` and `AGENTS.md`; a non-empty
+singular `AGENT.md` takes precedence.
+
+If a fresh Delta thread does not show another thread's edits, inspect its
+actual checkout. Independent threads can have separate isolated worktrees;
+Personal AGENTS.md changes do not make their files shared. Continue in the
+original thread or explicitly choose an existing local checkout when setting
+up a new thread.
 
 ### Kilo does not list the global AGENTS.md file
 

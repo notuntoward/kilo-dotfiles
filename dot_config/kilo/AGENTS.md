@@ -1,7 +1,8 @@
 # Global agent rules
 
-These rules apply to every Kilo session. Project-level `AGENTS.md` files are
-loaded after this file and may supplement or override these rules.
+These rules apply to agent sessions that load this file through Kilo, Delta, or
+Gemini. Project-level `AGENTS.md` files are loaded after this file and may
+supplement or override these rules.
 
 ## Rule: Conditional rules
 
@@ -15,9 +16,12 @@ rule.
 ## Rule: Updating these global rules
 
 This file is managed by the `notuntoward/kilo-dotfiles` repository through
-chezmoi. When the user asks to add, remove, or revise a global rule, explain
-that the canonical source and user instructions are in that repository's
-`README.md`:
+chezmoi. It is the canonical source for Kilo, Delta, and Gemini global rules;
+chezmoi templates install generated copies at `~/.config/delta/AGENTS.md` and
+`~/.gemini/config/AGENTS.md`. Delta reads its copy as Personal AGENTS.md. Keep
+the generated copies sourced from this file. When the user asks to add, remove,
+or revise a global rule, explain that the canonical source and user instructions
+are in that repository's `README.md`:
 
 https://github.com/notuntoward/kilo-dotfiles
 
@@ -690,6 +694,32 @@ After changing source that affects a runtime-loaded artifact:
 
 Do not treat `git diff` as evidence that the runtime-loaded artifact was built.
 
+## Rule: Delta thread workspaces and checkout identity
+
+A Delta project identifies a repository, not necessarily one shared working
+directory. An independent new thread can use its own isolated Delta worktree,
+so two threads attached to the same project can have different files and Git
+state. A fresh independent thread does not inherit another thread's checkout
+or edits. This is expected isolation; it does not by itself indicate a project
+configuration problem.
+
+- Before acting on a repository, inspect the worktrees attached to the current
+  thread. Do not assume a same-named project in another thread is the same
+  checkout or that its changes are visible here.
+- If the user expects direct work in an existing checkout, continue in the
+  thread already attached to it or choose **Existing Local Checkout** when
+  setting up a thread where possible. Do not silently move work between
+  checkouts.
+- If fresh context is needed while keeping the current checkout, create a new
+  thread from the current thread instead of creating an unrelated independent
+  thread. When an independent thread was deliberately created, state that it
+  has isolated files and arrange a Git or other explicit handoff if the user
+  wants changes transferred.
+- For a runtime test that needs another checkout, use the user's explicitly
+  designated runtime checkout only when it is attached or otherwise authorized
+  under Delta's checkout rules. If it is not available, ask the user to attach
+  it; do not treat a worktree build as a build of the runtime artifact.
+
 ## Rule: Obsidian plugin worktrees
 
 Apply this rule only when all of these are true:
@@ -699,26 +729,28 @@ Apply this rule only when all of these are true:
 - Work is occurring in a Git worktree rather than the checkout targeted by the
   vault's plugin path.
 
-A build in a worktree can produce a correct worktree `main.js` while Obsidian
-continues loading `main.js` from the main checkout.
+For this user's Obsidian setup, assume the vault's plugin-folder link points to
+the **top-level of the main local repository checkout**. The live plugin entry
+artifact is therefore `<main-checkout>/main.js`; a build under
+`.delta/worktrees/.../main.js` is a separate file and does not update what
+Obsidian loads. Verify the actual link target if it is uncertain, but do not ask
+the user to relink an already-correct vault or to recreate the link manually.
 
-- Prefer Agent Manager `local` mode when isolation is unnecessary.
-- Use worktree mode only when isolation is needed, such as conflicting edits or
-  multi-branch experiments.
-- When worktree isolation was used, run tests in the worktree, then prefer
-  Agent Manager Apply and a build in the main checkout before the user reloads.
-- If the vault must load the worktree immediately, use the shared relink script:
-
-```powershell
-& "$env:USERPROFILE\.config\kilo\tools\obsidian-relink.ps1" `
-    -Source "$worktreePath"
-```
-
-- Before asking the user to reload Obsidian, print the full path of the built
-  `main.js` that the vault will load.
-- Do not ask the user to remove or recreate a junction manually when the relink
-  script is available.
-- Do not assume a successful worktree build updated the vault-loaded artifact.
+- Prefer a thread that uses the existing local checkout when isolation is not
+  needed. If working in an isolated Delta worktree, run tests there first.
+- When the user asks to test the change in Obsidian, transfer the reviewed
+  changes to the user's linked top-level checkout using an authorized workflow
+  (prefer Agent Manager Apply), then run `npm run build` from that checkout's
+  root. If that checkout is not attached or otherwise
+  available under Delta's checkout rules, ask the user to attach it rather than
+  building in a different directory and calling that the live build.
+- Before asking the user to reload, verify the full path, modification time,
+  and a unique change fingerprint in the top-level checkout's `main.js`. State
+  that exact verified path.
+- Do not relink the vault to a worktree by default. Only use the shared relink
+  script if the user explicitly asks to load the worktree build; follow that
+  script's own safety requirements and do not ask the user to remove or
+  recreate a symlink or junction by hand.
 
 ## Rule: Node dependency changes
 
