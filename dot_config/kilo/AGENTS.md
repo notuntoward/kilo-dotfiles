@@ -13,6 +13,26 @@ When a rule does not apply, skip it silently. Do not install tools, create
 configuration, or change project structure merely to satisfy an inapplicable
 rule.
 
+## Rule: Mandatory instruction preflight
+
+Before editing a repository or declaring a task complete:
+
+1. Read the applicable `AGENTS.md`/`AGENT.md` files for the current checkout and
+   target paths. Confirm the exact instructions for this checkout; do not rely
+   only on memory, prior threads, or a summarized rule when the source is
+   available.
+2. Open and follow any referenced instructions or workflow documents before
+   taking the action they govern.
+3. For runtime-loaded artifacts, identify the exact artifact the application
+   loads. A successful build in an isolated worktree does not verify a different
+   checkout's runtime artifact.
+4. If an applicable instruction cannot be followed because the required
+   checkout or artifact is unavailable, state the blocker and request access
+   rather than claiming equivalent verification.
+
+Before reporting completion, confirm the required repository-specific checks and
+any applicable runtime-artifact verification. State any check that was not run.
+
 ## Rule: Updating these global rules
 
 This file is managed by the `notuntoward/kilo-dotfiles` repository through
@@ -720,37 +740,46 @@ configuration problem.
   under Delta's checkout rules. If it is not available, ask the user to attach
   it; do not treat a worktree build as a build of the runtime artifact.
 
-## Rule: Obsidian plugin worktrees
+## Rule: Build Obsidian plugins in the vault-linked checkout
 
-Apply this rule only when all of these are true:
+Apply this rule when an Obsidian plugin is loaded from a built artifact in a
+vault's plugin folder and that folder is linked to a development checkout.
 
-- The repository is an Obsidian plugin.
-- The plugin is loaded from `<vault>/.obsidian/plugins/<id>`.
-- Work is occurring in a Git worktree rather than the checkout targeted by the
-  vault's plugin path.
+### Required workflow
 
-For this user's Obsidian setup, assume the vault's plugin-folder link points to
-the **top-level of the main local repository checkout**. The live plugin entry
-artifact is therefore `<main-checkout>/main.js`; a build under
-`.delta/worktrees/.../main.js` is a separate file and does not update what
-Obsidian loads. Verify the actual link target if it is uncertain, but do not ask
-the user to relink an already-correct vault or to recreate the link manually.
+1. Identify the exact plugin folder Obsidian loads and resolve its symlink or
+   junction target. Do not infer the target from the manifest ID, repository
+   name, editor workspace, or a nearby folder; these can differ.
+2. If the vault already points to the user's established local clone, use that
+   clone as the canonical runtime checkout. Make or transfer source changes
+   into it, then run the repository's documented production build from its
+   root (for this plugin, `npm run build`). Leave the existing vault link
+   unchanged. A build in a separate IDE worktree or clone does not update the
+   artifact Obsidian loads.
+3. If the linked checkout is unavailable in the current environment, stop and
+   ask the user to make that checkout available. Do not redirect the vault to
+   another checkout or describe a build from elsewhere as the live build.
+4. Before asking the user to reload Obsidian, verify the full path and recent
+   modification time of the built artifact, check a unique fingerprint from
+   the change in that artifact, and confirm the vault's existing link still
+   resolves to the checkout that was built.
 
-- Prefer a thread that uses the existing local checkout when isolation is not
-  needed. If working in an isolated Delta worktree, run tests there first.
-- When the user asks to test the change in Obsidian, transfer the reviewed
-  changes to the user's linked top-level checkout using an authorized workflow
-  (prefer Agent Manager Apply), then run `npm run build` from that checkout's
-  root. If that checkout is not attached or otherwise
-  available under Delta's checkout rules, ask the user to attach it rather than
-  building in a different directory and calling that the live build.
-- Before asking the user to reload, verify the full path, modification time,
-  and a unique change fingerprint in the top-level checkout's `main.js`. State
-  that exact verified path.
-- Do not relink the vault to a worktree by default. Only use the shared relink
-  script if the user explicitly asks to load the worktree build; follow that
-  script's own safety requirements and do not ask the user to remove or
-  recreate a symlink or junction by hand.
+### What NOT to do
+
+- Do not repoint, replace, recreate, delete, or toggle the vault's plugin
+  symlink or junction just to expose an IDE worktree. Do not do this for each
+  task or build.
+- Do not copy only `main.js` from a separate worktree into the linked checkout
+  instead of building the source there; that can leave source, tests, and the
+  runtime bundle out of sync.
+- Do not treat settings that appear missing after a link change as erased or
+  tell the user to reinitialize them. Obsidian plugin data (often `data.json`)
+  is tied to the loaded plugin directory; changing the link makes Obsidian
+  read a different checkout's data file. The original settings remain at the
+  previous target. Keep the link stable and preserve that file.
+- Change the link only when the user explicitly requests loading a different
+  checkout. Explain first that this also changes the settings location, and
+  preserve the original target and settings so they can be restored.
 
 ## Rule: Node dependency changes
 
