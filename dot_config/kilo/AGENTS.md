@@ -745,6 +745,24 @@ configuration problem.
 Apply this rule when an Obsidian plugin is loaded from a built artifact in a
 vault's plugin folder and that folder is linked to a development checkout.
 
+### Stop gate before editing
+
+Before editing, testing, or building for this plugin:
+
+1. Resolve the exact plugin folder Obsidian loads and its symlink or junction
+   target.
+2. Resolve the Git root of the checkout you intend to use.
+3. Compare those paths. Proceed only when the checkout Git root is the resolved
+   link target. State both paths before the first edit. Repository names,
+   manifest IDs, branches, matching commits, and attached project names do not
+   prove that the paths match.
+4. If they differ, or the target is unavailable, stop before editing, testing,
+   or building. Ask the user to attach/select **Existing Local Checkout** or
+   explicitly authorize work in the linked checkout. Do not make changes in
+   another worktree and transfer them afterward.
+5. After the intended checkout is available or authorized, repeat this check
+   and proceed only from its root.
+
 ### Required workflow
 
 1. Identify the exact plugin folder Obsidian loads and resolve its symlink or
