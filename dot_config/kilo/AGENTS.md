@@ -52,6 +52,28 @@ tracked source file, apply it with chezmoi, commit it, and push it.
 Do not run chezmoi commands, modify global Git configuration, commit, or push
 this dotfiles repository unless the user explicitly asks.
 
+When the user explicitly asks you to change, move, or add a global rule (that
+request is the authorization to run chezmoi and to commit and push this
+dotfiles repository), follow exactly this procedure:
+
+1. Find the source repository with `chezmoi source-path` (normally
+   `~/.local/share/chezmoi`). Work there, not in a worktree under its
+   `.kilo/worktrees/` directory and not in any project repository.
+2. Edit ONLY `dot_config/kilo/AGENTS.md` in that source repository. Never write
+   to the installed files `~/.config/kilo/AGENTS.md`,
+   `~/.config/delta/AGENTS.md`, or `~/.gemini/config/AGENTS.md`, and never edit
+   the `AGENTS.md.tmpl` files: they only `include` the Kilo source.
+3. Preserve the file's existing line endings (check before editing).
+4. Run `chezmoi apply` with no path, which renders all three installed copies.
+   Applying only the Kilo path leaves the Delta and Gemini copies stale.
+5. Verify: `chezmoi diff` prints nothing, and a distinctive phrase from the
+   change is present in all three installed files.
+6. Commit the source repository change following the "Git commit messages" rule
+   (message file and `git commit -F`; no hook bypass), then `git push`. Report
+   the commit hash and that a new Kilo/Delta/Gemini session is needed to load
+   the updated rules.
+7. Do not touch the project repository's own `AGENTS.md` as part of this; move
+   or delete project-level copies only when the user asks.
 ## Debugging
 
 This section collects every rule about finding the cause of a bug, from
@@ -851,6 +873,57 @@ Before declaring a task complete:
 - Do not claim a test, build, installation, or artifact verification passed
   unless it actually completed successfully.
 
+## Rule: Obsidian pop-out windows
+
+Apply this rule when writing or reviewing code for an Obsidian plugin.
+
+Obsidian pop-out windows have their own `document`, `window`, `navigator`,
+timers, and animation frames. The bare globals refer to the MAIN window. A
+plugin that uses them works perfectly in the main window and fails silently only
+when the user is working in a pop-out, so no type error or ordinary test will
+catch it. Real failures traced to this: a search box attached to the wrong
+window; the wrong leaf chosen as the target because `document.activeElement`
+was read from the main document; focus bounced back to the original pane after
+clicking another pane; a key-repeat (hold a key) feature that never ran because
+its listeners were only on the main window; clipboard commands rejected because
+`navigator.clipboard` was called on an unfocused window; and `requestAnimationFrame`
+or timers that never fire because the main window was hidden.
+
+- Never use bare `document` or `window` (or `navigator`) for focus checks,
+  `activeElement`, `querySelector`, `body`, timers, `requestAnimationFrame`,
+  `getSelection`, clipboard access, or event listeners. Use Obsidian's
+  `activeDocument` / `activeWindow` for "the window the user is in", or derive
+  the window from the element or event: `el.ownerDocument`,
+  `el.ownerDocument.defaultView`, `evt.view`.
+- Create and clear a timer on the SAME window: `win.setTimeout` /
+  `win.clearTimeout`. A timer id from one window cannot be cleared on another.
+- Register global listeners (`keydown`, `keyup`, `pointerdown`, `mousedown`,
+  window `blur`) once per window, deduplicated, not only on the main document:
+  hook the main window, every pop-out that already exists at
+  `workspace.onLayoutReady` (via `iterateAllLeaves` and
+  `containerEl.ownerDocument.defaultView`), and each later pop-out via the
+  `window-open` workspace event.
+- A handler that closes UI because focus left it (blur) must not steal focus
+  back to the original editor when focus moved to a real element in another pane
+  or window. Pass an explicit `refocus` flag, true only when focus landed on
+  `body` or nowhere.
+- Remember that code in a plugin always runs in the main window's JavaScript
+  context, so `console.*` output appears in the MAIN window's DevTools, even for
+  work done in a pop-out. Tell the user which window's console to open.
+
+Add regression coverage whenever you touch this area:
+
+1. A static source-scan test that fails on the forbidden bare globals in the
+   plugin's source (comments stripped; deliberate main-document uses such as
+   "hook the main document" must not match the patterns).
+2. Behavior tests that use a second document from
+   `document.implementation.createHTMLDocument()` as a stand-in pop-out. jsdom
+   does not track focus there, so stub `activeElement` on that document with
+   `Object.defineProperty`, and stub `activeDocument` / `activeWindow` globals.
+3. Verify each new test fails against the pre-fix code.
+
+A test cannot reproduce a real focused pop-out, so state that a manual check in
+Obsidian is still needed.
 ## Rule: A pre-push/pre-commit hook that runs `npm ci` can fail with EPERM on Windows and block the push
 
 Apply this rule when a git push fails with an `EPERM`/`unlink` on a native

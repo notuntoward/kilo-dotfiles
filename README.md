@@ -58,6 +58,7 @@ The global `AGENTS.md` contains reusable rules, including:
 - Windows command-line safety and Git line-ending handling.
 - Verifying runtime-loaded build artifacts.
 - Delta thread/worktree identity and Obsidian plugin worktree workflows.
+- Obsidian pop-out window rules: no bare main-window globals, per-window listeners and timers, and no focus stealing on blur.
 - Conditional Node/npm and Python repository rules.
 
 Technology-specific rules are conditional: they apply only after Kilo verifies
