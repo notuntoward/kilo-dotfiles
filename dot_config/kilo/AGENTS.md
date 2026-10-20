@@ -924,6 +924,95 @@ Add regression coverage whenever you touch this area:
 
 A test cannot reproduce a real focused pop-out, so state that a manual check in
 Obsidian is still needed.
+## Rule: Obsidian shared library (`commons`)
+
+Apply this rule only in Obsidian plugin repositories (and in the library repo
+itself). The shared library is the repository `obsidian-commons` (GitHub:
+`notuntoward/obsidian-commons`), normally checked out at
+`C:\Users\scott\repos\obsidian-commons`; its package name is `commons`. Plugin
+work must not duplicate what it owns, because duplicated copies drifted and
+repeated the same bugs across plugins.
+
+### What commons owns
+
+- Windows, tab groups, tabs: the navigation model (`commons/workspace`), window
+  resolution, main-window and sidebar tests, popout closing, focusing a leaf and
+  its window, leaf recency.
+- Per-window plumbing (`commons/windows`): `forEachWindow`, owner-window timers,
+  clipboard, event windows.
+- OS window raising (`commons/os`, planned), modal chooser helpers
+  (`commons/modal`), picker search (`commons/search`), geometry
+  (`commons/geometry`), colors (`commons/color`, planned), test kit
+  (`commons/testing`).
+- The ONLY code allowed to read undocumented Obsidian fields (`leaf.id`,
+  `leaf.detached`, `container.win`, `rootSplit/leftSplit/rightSplit/floatingSplit`,
+  `tabHeaderEl`, `parent.children`, `loadIfDeferred`, `chooser.setSelectedItem`).
+- The current plan, checklist and handoff log: `docs/PLAN.md`,
+  `docs/CHECKLIST.md`, `docs/HANDOFF.md` in the commons repo.
+
+### Classify the repository first
+
+1. **Library** (the repo is `obsidian-commons`): follow its `AGENTS.md`; this
+   rule's "Changing commons" section describes your workflow.
+2. **Migrated plugin** (`package.json` lists a `commons` dependency): use
+   commons for everything it owns. Never write a new `iterateAllLeaves` scan, a
+   `Map` keyed on `leaf.parent`, a main-window test, a window lookup, or a
+   private-field read in plugin code. If commons lacks something or has a bug,
+   fix it in commons (below), never in a local copy.
+3. **Unmigrated plugin** (no `commons` dependency): work exactly as the plugin's
+   own `AGENTS.md` says; do not start a migration unprompted. But if the task
+   touches window, tab group, popout, focus, modal-chooser, or color-parsing
+   code, do that part through commons: follow `docs/MIGRATING.md` in the commons
+   repo for that one area, as its own small step, instead of editing the local
+   copy. Do not add new code for these areas to an unmigrated plugin when
+   commons already provides it (check `src/<module>/index.ts` and
+   `docs/CHECKLIST.md` first).
+
+If the commons checkout is unavailable, say so and continue in the plugin only
+when the task does not touch an owned area; otherwise stop and ask.
+
+### Obsidian version and build settings for every plugin using commons
+
+- `manifest.json` `minAppVersion` is `1.14.0`; `package.json` pins
+  `"obsidian": "~1.14.4"` (not `latest`).
+- `tsconfig.json` uses `"moduleResolution": "bundler"` and
+  `"paths": { "obsidian": ["./node_modules/obsidian"] }`. Without `paths`,
+  the plugin and commons get two copies of the `obsidian` types and TypeScript
+  reports unrelated-type errors on `WorkspaceLeaf`.
+- Vitest aliases `obsidian` to `commons/testing/obsidian-mock` (or a local mock
+  that extends it).
+- During migration the dependency is `"commons": "file:../obsidian-commons"`
+  (a junction; edits are visible immediately). It is flipped to a git tag only
+  at release (see the library's `docs/PLAN.md`). A plugin whose `commons`
+  dependency is `file:` must not be released or tagged.
+
+### Changing commons (you do this yourself and tell the user)
+
+You decide when a change belongs in commons: it is window/tab/popout/modal/
+color/test-kit code that one plugin needs and another plausibly will, or it
+fixes a bug that exists in several copies. Then:
+
+1. Work in the commons checkout, on `main` or a short branch. Add or update a
+   test that fails without the change; keep `tests/guardrails.test.ts` honest.
+2. Run `npm run check` there (lint, typecheck, tests). Fix until green.
+3. Update `docs/CHECKLIST.md` and add a `docs/HANDOFF.md` entry (newest first).
+4. "Make it available": in local mode nothing to publish. Run the consumer's own
+   full check against it (`node scripts/consumers.mjs check <name>` from the
+   commons repo) and fix what breaks. Do the consumer-side adoption yourself.
+5. Tag a release (`vX.Y.Z`, semver) only when the plan calls for it (first
+   at the flip to tags, then for breaking or widely wanted changes); follow the
+   git commit message rule; never skip hooks.
+6. Install and rebuild are your job, not the user's: run `npm install` (not
+   `npm ci`) in the consumer, build it with its documented production build in
+   the vault-linked checkout (see the checkout rule), and verify the artifact.
+7. Tell the user plainly what you did: which library files changed, what was
+   tagged, which plugins were rebuilt, and anything that still needs their
+   action (for example reloading Obsidian or a decision recorded in HANDOFF).
+
+Record surprises in `docs/HANDOFF.md`. This rule and the plan are living
+documents: when circumstances change, edit them (and say so) instead of working
+around them.
+
 ## Rule: A pre-push/pre-commit hook that runs `npm ci` can fail with EPERM on Windows and block the push
 
 Apply this rule when a git push fails with an `EPERM`/`unlink` on a native
