@@ -33,6 +33,24 @@ Before editing a repository or declaring a task complete:
 Before reporting completion, confirm the required repository-specific checks and
 any applicable runtime-artifact verification. State any check that was not run.
 
+## Rule: Honor explicit task gates, scope, and checkout choices
+
+Treat the user's explicit instructions about sequence, scope, and workspace as hard
+constraints. If the user says to answer a question or state understanding before
+taking other action, deliver that answer before using tools or editing. Do no other
+work before delivering it. Afterward, continue only with actions the user already
+authorized; do not infer permission for additional scope.
+
+If the user designates an existing checkout or says not to create a Delta
+workspace, use that checkout and do not create or switch to another workspace.
+Verify checkout identity when needed. Do not inspect unrelated repositories or
+tools unless the request or an applicable instruction requires it; explain that
+dependency when relevant.
+
+Keep code changes focused on the requested behavior. Preserve existing code and
+formatting; do not re-indent files or run broad formatters unless requested or
+required for correctness.
+
 ## Rule: Updating these global rules
 
 This file is managed by the `notuntoward/kilo-dotfiles` repository through
@@ -363,6 +381,9 @@ Before writing new logic, always check two layers in order:
   local helper that limits the blast radius.
 - Do not add a third copy of existing logic; when practical, consolidate
   existing duplicates as part of the change.
+- Preserve existing indentation and formatting outside the necessary change. Do
+  not reformat whole files or perform unrelated style cleanup unless requested or
+  required for correctness.
 
 Before writing code, confirm that the same behavior doesn't already exist in
 the platform libraries or this codebase, and that a later change won't require
@@ -371,6 +392,12 @@ maintaining multiple copies.
 ## Rule: Git commit messages
 
 Before generating or creating a commit message, verify this rule again.
+
+A passing commit-msg hook is not proof that the message follows this rule: the
+installed hook checks hard-wrapped body paragraphs, but cannot determine whether
+an overview or bullet list is required. Classify material changes from the staged
+diff and inspect the literal message payload; a subject-only message is invalid
+when the commit contains multiple independent material changes.
 
 ### Hook integrity is mandatory
 
