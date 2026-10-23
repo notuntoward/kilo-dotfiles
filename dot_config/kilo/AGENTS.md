@@ -545,39 +545,17 @@ After a successful commit, delete the temporary message file.
 
 ### Required shell pattern for structured messages
 
-Use whichever shell is actually available and driving the session — do not
-force PowerShell on a bash/zsh session or vice versa. Both patterns produce
-the same result: a temporary message file passed to `git commit -F`.
-
-PowerShell:
-
-```powershell
-$messageFile = ".git\kilo-commit-message.txt"
-@'
-Subject line in imperative mood
-
-One-line overview paragraph, if useful.
-
-- One material change per bullet, on one physical line
-- Another material change, on one physical line
-'@ | Set-Content -NoNewline $messageFile
-
-Get-Content $messageFile
-git commit -F $messageFile
-Remove-Item $messageFile
-```
-
-bash/zsh:
+Always use POSIX bash (`cat > ... <<'EOF'`) in the terminal to prepare structured commit messages. Do NOT use PowerShell to write commit messages; Windows PowerShell 5.1 defaults to ANSI encoding (corrupting UTF-8 characters like em-dashes and quotes) and backticks in PowerShell escape characters (``` `r ```, ``` `n ```, ``` `t ```, ``` `a ```), which can corrupt text.
 
 ```bash
 messageFile=".git/kilo-commit-message.txt"
 cat > "$messageFile" <<'EOF'
-Subject line in imperative mood
+Subject line in imperative mood (<= 72 chars)
 
-One-line overview paragraph, if useful.
+One-line overview paragraph explaining what changed and why.
 
-- One material change per bullet, on one physical line
-- Another material change, on one physical line
+- First material change on one single physical line
+- Second material change on one single physical line
 EOF
 
 cat "$messageFile"
@@ -585,19 +563,9 @@ git commit -F "$messageFile"
 rm "$messageFile"
 ```
 
-The quoted heredoc delimiter (`<<'EOF'`, not `<<EOF`) matters: it prevents the
-shell from expanding `$variables`, backticks, or other content inside the
-commit message body.
+The quoted heredoc delimiter (`<<'EOF'`, not `<<EOF`) is mandatory: it prevents bash from expanding `$variables`, backticks, or other characters inside the commit message body.
 
-`Set-Content -NoNewline` (PowerShell) and a plain heredoc (bash/zsh) both avoid
-adding a stray trailing newline; neither changes how many newlines are inside
-the message body itself. Whether those inner newlines are LF or CRLF does not
-matter for commit-message structure — Git accepts either. Do not add or remove
-a newline in this file to "fix" a CRLF/LF warning; that warning is about
-tracked source files, never about a commit-message file.
-
-Do not add `--no-verify`. Do not use `git commit -m` for a structured message
-when this pattern applies.
+Do not add `--no-verify`. Do not use `git commit -m` for structured messages.
 
 ### Hook rejection procedure
 
@@ -614,24 +582,14 @@ If the commit hook identifies specific hard-wrapped paragraphs:
 
 Apply this rule only when the workspace runs on Windows.
 
-Unix-style tools such as `sed`, `awk`, and `grep` may be available, but use
-Windows-safe quoting and editing practices.
-
-- Prefer double quotes for arguments passed to external Unix-style executables.
-- Do not assume Bash single-quote behavior works in PowerShell or CMD.
-- If a `sed -i` edit fails or risks an empty file, use an output-redirection
-  approach or PowerShell's in-memory replacement instead.
-- When embedding literal double quotes inside a double-quoted PowerShell string,
-  escape them as `""`.
-- Inspect the edited file after a destructive or in-place transformation.
-
-Example:
-
-```powershell
-sed -i "s/foo/bar/g" file.txt
-(Get-Content file.txt) -replace 'foo', 'bar' | Set-Content file.txt
-sed -i "s/""foo""/""bar""/g" file.txt
-```
+- **Prefer POSIX Bash / Git Bash and Node.js for terminal commands.** Git on Windows provides Git Bash (/bin/bash, /usr/bin/bash), and Node.js is installed.
+- **Avoid running commands in PowerShell.** PowerShell on Windows introduces severe traps for AI tools:
+  1. **Escape character collision**: In PowerShell, backticks (``` ` ```) are escape characters (``` `n ``` = newline, ``` `t ``` = tab, ``` `a ``` = bell, ``` `0 ``` = null). Passing TypeScript, Markdown, or shell snippets containing backticks into PowerShell commands injects ASCII control characters and corrupts files.
+  2. **Encoding corruption**: Windows PowerShell 5.1's `Set-Content` and output redirection (`>`) default to ANSI/Windows-1252, which destroys UTF-8 characters (em-dashes, typographic quotes, mathematical symbols).
+  3. **No `&&` chaining in Windows PowerShell 5.1**: Windows PowerShell 5.1 does not support `&&` or `||`, failing with `The token '&&' is not a valid statement separator in this version`.
+  4. **No heredocs (`<<'EOF'`)**: PowerShell does not support POSIX heredocs.
+- When editing or creating files, use the agent's dedicated file tools (`edit_file`) or a Node.js script (`node -e "..."`), NEVER `(Get-Content file) -replace ... | Set-Content file`.
+- For string replacement or script tasks, run Node.js or POSIX bash scripts.
 
 ## Rule: Git line endings
 
@@ -696,26 +654,10 @@ correctly applying the repository's own policy on commit.
 
 ### When a line-ending warning occurs mid-session
 
-- Diagnose the file's actual line endings against the repository's determined
-  policy before acting.
-- If the file's endings already match the policy, the warning is
-  informational; leave the file alone.
-- If the file's endings do not match the policy, fix the offending file in
-  place and re-stage it before continuing.
-- Prefer `git add --renormalize .` when normalization is intended.
-- Use `git config --local`, never `--global`, if a repository-specific Git
-  setting is necessary.
-- Do not suppress the warning by redirecting stderr, disabling Git advice (for
-  example `advice.addIgnoredFile=false`), or changing global `core.autocrlf`.
-- If normalization would create a broad unrelated diff, tell the user and keep
-  it separate from the functional change.
-- If `core.safecrlf=true` blocks the operation, ask the user before relaxing it.
-- If mixed line endings affect builds or tests, flag the issue and recommend an
-  explicit `.gitattributes` rule where appropriate.
-
-For cross-platform repositories that store files with LF, prefer a local
-`core.autocrlf=input` configuration only when it is consistent with the
-repository's existing policy and necessary to prevent Git rewriting files.
+- **Git messages about replacing LF/CRLF on commit/checkout are informational notices, NOT errors or failures.** When Git reports `warning: in the working copy of '...', LF will be replaced by CRLF` or `CRLF will be replaced by LF`, Git is confirming that line ending normalization is active. Do NOT treat this notice as a failure, do NOT retry the git command, and do NOT attempt to rewrite the file's line endings with PowerShell scripts.
+- Global `core.autocrlf=input` and `core.safecrlf=false` are configured globally. Repositories store files with LF in Git.
+- Ensure the repository has a `.gitattributes` file with `* text=auto eol=lf`. When present, Git automatically handles line endings across all platforms.
+- Do not run PowerShell normalization scripts on files after editing.
 
 ## Rule: Verify runtime-loaded build artifacts
 

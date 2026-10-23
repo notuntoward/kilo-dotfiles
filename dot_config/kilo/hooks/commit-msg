@@ -1,24 +1,140 @@
 #!/bin/bash
-# Cross-platform commit-msg hook wrapper.
-# Resolves the script directory without readlink -f (macOS BSD readlink lacks -f),
-# then invokes PowerShell with the correct binary name for each platform.
+# Global commit-msg hook enforcing structure and content rules from ~/.config/kilo/AGENTS.md.
+# Runs natively in POSIX bash with zero external dependencies.
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-# Detect PowerShell: prefer `pwsh` (PowerShell Core, cross-platform) over
-# `powershell.exe` (Windows PowerShell, Windows-only).  PowerShell 7+ is
-# required for full cmdlet compatibility; Windows PowerShell 5.1 works for
-# this hook but pwsh is preferred when available on Windows too.
-if command -v pwsh >/dev/null 2>&1; then
-    PS=pwsh
-elif command -v powershell.exe >/dev/null 2>&1; then
-    PS=powershell.exe
-elif command -v powershell >/dev/null 2>&1; then
-    PS=powershell
-else
-    echo "COMMIT REJECTED: no PowerShell (pwsh) found. Install PowerShell Core." >&2
-    exit 1
+MSG_FILE="$1"
+if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
+    exit 0
 fi
 
-"$PS" -NoProfile -ExecutionPolicy Bypass -File "$SCRIPT_DIR/commit-msg.ps1" "$@"
-exit $?
+# Read non-comment lines with CR stripped
+mapfile -t LINES < <(grep -v "^[[:space:]]*#" "$MSG_FILE" | sed 's/\r$//')
+
+# Trim leading and trailing blank lines
+while [ "${#LINES[@]}" -gt 0 ] && [ -z "${LINES[0]//[[:space:]]/}" ]; do
+    LINES=("${LINES[@]:1}")
+done
+while [ "${#LINES[@]}" -gt 0 ] && [ -z "${LINES[${#LINES[@]}-1]//[[:space:]]/}" ]; do
+    unset "LINES[${#LINES[@]}-1]"
+done
+
+if [ "${#LINES[@]}" -eq 0 ]; then
+    exit 0
+fi
+
+SUBJECT="${LINES[0]}"
+
+# Allow standard Git merge / revert / pull commits
+merge_pattern='^Merge (branch|pull request|remote-tracking branch|tag) '
+revert_pattern='^Revert "'
+if [[ "$SUBJECT" =~ $merge_pattern ]] || [[ "$SUBJECT" =~ $revert_pattern ]]; then
+    exit 0
+fi
+
+reject() {
+    echo "COMMIT REJECTED: $1" >&2
+    echo "" >&2
+    echo "Required commit message format (use git commit -F, never git commit -m):" >&2
+    echo "  Line 1: Imperative subject line (<= 72 chars)" >&2
+    echo "  Line 2: Blank line" >&2
+    echo "  Line 3: Single-line overview paragraph (1 physical line, no line wraps)" >&2
+    echo "  Line 4: Blank line (required when 2+ files or changes are committed)" >&2
+    echo "  Line 5+: Bullet list (- item), one physical line per bullet" >&2
+    echo "" >&2
+    echo "Correct pattern in bash/terminal:" >&2
+    echo "  cat > .git/kilo-commit-message.txt <<'EOF'" >&2
+    echo "  Imperative subject line" >&2
+    echo "" >&2
+    echo "  One-line overview paragraph explaining what changed." >&2
+    echo "" >&2
+    echo "  - First material change on one single line" >&2
+    echo "  - Second material change on one single line" >&2
+    echo "  EOF" >&2
+    echo "  git commit -F .git/kilo-commit-message.txt && rm .git/kilo-commit-message.txt" >&2
+    exit 1
+}
+
+if [ "${#SUBJECT}" -gt 72 ]; then
+    reject "Subject line is ${#SUBJECT} characters (maximum is 72)."
+fi
+
+if [ "${#LINES[@]}" -lt 3 ]; then
+    reject "Subject-only commit messages are forbidden. Include a blank line followed by a one-line overview paragraph (and a - bullet list when changing multiple files or items)."
+fi
+
+if [ -n "${LINES[1]//[[:space:]]/}" ]; then
+    reject "Line 2 must be blank (separate the subject line from the body with one blank line)."
+fi
+
+# Parse paragraphs separated by blank lines
+PARAGRAPHS=()
+CURRENT=""
+for ((i = 0; i < ${#LINES[@]}; i++)); do
+    LINE="${LINES[$i]}"
+    if [ -z "${LINE//[[:space:]]/}" ]; then
+        if [ -n "$CURRENT" ]; then
+            PARAGRAPHS+=("$CURRENT")
+            CURRENT=""
+        fi
+    else
+        if [ -z "$CURRENT" ]; then
+            CURRENT="$LINE"
+        else
+            CURRENT="$CURRENT"$'
+'"$LINE"
+        fi
+    fi
+done
+if [ -n "$CURRENT" ]; then
+    PARAGRAPHS+=("$CURRENT")
+fi
+
+if [ "${#PARAGRAPHS[@]}" -lt 2 ]; then
+    reject "Commit message must include a body after the subject line."
+fi
+
+# Paragraph 1 (index 1) must be a single-line prose overview paragraph, not a bullet list
+OVERVIEW="${PARAGRAPHS[1]}"
+bullet_lead_pattern='^[[:space:]]*([-*]|[0-9]+[.)])[[:space:]]'
+if [[ "$OVERVIEW" =~ $bullet_lead_pattern ]]; then
+    reject "Body starts directly with a bullet list. Start the body with a one-line overview paragraph before the blank line and bullet list."
+fi
+
+BAD_PARAGRAPHS=()
+BULLET_COUNT=0
+bullet_item_pattern='^[[:space:]]*[-*][[:space:]]'
+for ((p = 0; p < ${#PARAGRAPHS[@]}; p++)); do
+    PARA="${PARAGRAPHS[$p]}"
+    mapfile -t PLINES <<< "$PARA"
+    if [ "${#PLINES[@]}" -le 1 ]; then
+        if [ "$p" -ge 2 ] && [[ "${PLINES[0]}" =~ $bullet_item_pattern ]]; then
+            BULLET_COUNT=$((BULLET_COUNT + 1))
+        fi
+        continue
+    fi
+    ALL_LIST=1
+    for PL in "${PLINES[@]}"; do
+        if [[ ! "$PL" =~ $bullet_lead_pattern ]]; then
+            ALL_LIST=0
+            break
+        fi
+    done
+    if [ "$ALL_LIST" -eq 1 ]; then
+        BULLET_COUNT=$((BULLET_COUNT + ${#PLINES[@]}))
+        continue
+    fi
+    BAD_PARAGRAPHS+=("$((p + 1))")
+done
+
+if [ "${#BAD_PARAGRAPHS[@]}" -gt 0 ]; then
+    JOINED=$(IFS=", "; echo "${BAD_PARAGRAPHS[*]}")
+    reject "Paragraph(s) $JOINED are hard-wrapped across multiple lines. Every prose paragraph and every bullet item must sit on a single physical line."
+fi
+
+# Check staged file count: if 2+ files are staged, require at least 2 bullets
+STAGED_FILES="${KILO_TEST_STAGED_FILES:-$(git diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')}"
+if [ "${STAGED_FILES:-0}" -ge 2 ] && [ "$BULLET_COUNT" -lt 2 ]; then
+    reject "Staged diff touches $STAGED_FILES files, so the commit body must include a bullet list (at least 2 '- ' bullets) after the overview paragraph."
+fi
+
+exit 0
