@@ -765,29 +765,21 @@ Do not treat `git diff` as evidence that the runtime-loaded artifact was built.
 
 ## Rule: Delta thread workspaces and checkout identity
 
-A Delta project identifies a repository, not necessarily one shared working
-directory. An independent new thread can use its own isolated Delta worktree,
-so two threads attached to the same project can have different files and Git
-state. A fresh independent thread does not inherit another thread's checkout
-or edits. This is expected isolation; it does not by itself indicate a project
-configuration problem.
+A Delta worktree is an isolated clone created by Delta, not the user's original
+cloned repository on disk. Never ask the user to attach a repository to a Delta
+thread.
 
-- Before acting on a repository, inspect the worktrees attached to the current
-  thread. Do not assume a same-named project in another thread is the same
-  checkout or that its changes are visible here.
-- If the user expects direct work in an existing checkout, continue in the
-  thread already attached to it or choose **Existing Local Checkout** when
-  setting up a thread where possible. Do not silently move work between
-  checkouts.
-- If fresh context is needed while keeping the current checkout, create a new
-  thread from the current thread instead of creating an unrelated independent
-  thread. When an independent thread was deliberately created, state that it
-  has isolated files and arrange a Git or other explicit handoff if the user
-  wants changes transferred.
-- For a runtime test that needs another checkout, use the user's explicitly
-  designated runtime checkout only when it is attached or otherwise authorized
-  under Delta's checkout rules. If it is not available, ask the user to attach
-  it; do not treat a worktree build as a build of the runtime artifact.
+- Do not work in an isolated Delta worktree when the original cloned repository
+  exists on disk (such as under `C:\Users\scott\repos`), and never ask the
+  user to attach a repository or select **Existing Local Checkout**.
+- Work, test, and build only in the original cloned repository on disk, which is
+  linked to the Obsidian vaults (or other runtime environments) where manual
+  testing is performed.
+- If a thread starts with an isolated Delta worktree attached, resolve the
+  original cloned repository (via the vault symlink/junction target or the
+  worktree's `local` Git remote) and perform all edits, tests, and builds
+  directly in that original cloned repository. Do not treat a Delta worktree
+  build as a build of the runtime artifact.
 
 ## Rule: Build Obsidian plugins in the vault-linked checkout
 
@@ -799,18 +791,18 @@ vault's plugin folder and that folder is linked to a development checkout.
 Before editing, testing, or building for this plugin:
 
 1. Resolve the exact plugin folder Obsidian loads and its symlink or junction
-   target.
+   target (the original cloned repository on disk).
 2. Resolve the Git root of the checkout you intend to use.
 3. Compare those paths. Proceed only when the checkout Git root is the resolved
    link target. State both paths before the first edit. Repository names,
    manifest IDs, branches, matching commits, and attached project names do not
    prove that the paths match.
-4. If they differ, or the target is unavailable, stop before editing, testing,
-   or building. Ask the user to attach/select **Existing Local Checkout** or
-   explicitly authorize work in the linked checkout. Do not make changes in
-   another worktree and transfer them afterward.
-5. After the intended checkout is available or authorized, repeat this check
-   and proceed only from its root.
+4. Do not ask the user to attach the repository to Delta, and do not edit or
+   build in an isolated Delta worktree. Always switch your working directory to
+   the resolved vault-linked original checkout on disk and do all edits, tests,
+   and builds directly there.
+5. Only stop and ask the user if no vault link exists or the target directory
+   on disk is missing.
 
 ### Required workflow
 
