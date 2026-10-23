@@ -1,5 +1,25 @@
 # Global agent rules
 
+## Delta checkout authorization
+
+I explicitly authorize agents to edit, test, and build directly in my original
+repositories under `C:Usersscottepos` without attaching them to Delta.
+This chooses direct editing under Delta's exception for user-authorized work
+outside attached worktrees. Do not request attachment, select Existing Local
+Checkout, or create another checkout.
+
+Before any edit, test, build, or consumer check, print the current directory
+and resolve and state the original repository's Git root. If the thread starts
+in an isolated Delta checkout, use its `local` remote to locate the original,
+then run project commands from that original checkout. For a runtime-loaded
+plugin, also resolve and state the existing vault plugin path and its link
+target, and verify that target matches the Git root before proceeding.
+
+A consumer reported missing from an isolated checkout is not evidence that
+its original repository is unavailable. Check the original repository first.
+Leave existing vault links and settings untouched. Ask for access only if the
+required original checkout or runtime target is actually unavailable.
+
 These rules apply to agent sessions that load this file through Kilo, Delta, or
 Gemini. Project-level `AGENTS.md` files are loaded after this file and may
 supplement or override these rules.
