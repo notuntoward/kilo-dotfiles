@@ -3,8 +3,9 @@
 This repository is the source of truth for global agent rules and shared Kilo
 helper scripts. chezmoi installs the canonical rules at
 `~/.config/kilo/AGENTS.md` and renders copies for Delta at
-`~/.config/delta/AGENTS.md` and Antigravity (Gemini) at
-`~/.gemini/config/AGENTS.md`. See [the copy map](#how-the-kilo-delta-and-gemini-copies-are-connected) for details.
+`~/.config/delta/AGENTS.md`, Antigravity (Gemini) at
+`~/.gemini/config/AGENTS.md`, and Copilot at
+`~/.copilot/copilot-instructions.md`. See [the copy map](#how-the-kilo-delta-and-gemini-copies-are-connected) for details.
 
 - To change a global rule, see [Change a global agent rule](#change-a-global-agent-rule).
 - To pull a change made on another machine, see [Pull changes from another machine](#pull-changes-from-another-machine).
@@ -50,6 +51,7 @@ thread already using that checkout. See [Delta thread workspaces and checkout id
 The global `AGENTS.md` contains reusable rules, including:
 
 - Commit-message formatting.
+- Preserving the user's Git identity and excluding AI attribution from commits and pull requests.
 - Avoiding duplicate code and unnecessary churn.
 - A single Debugging section: resolving uncertainty with decisive tests rather
   than repeated speculation, Obsidian console snippets, targeted log markers,
@@ -84,6 +86,8 @@ that the current repository uses the relevant technology or workflow.
 │       │   └── commit-msg.ps1  # PowerShell hook implementation
 │       └── tools/
 │           └── obsidian-relink.ps1  # Obsidian plugin relinking helper
+├── dot_copilot/
+│   └── copilot-instructions.md.tmpl  # Copilot personal rules (includes the Kilo source)
 └── dot_gemini/
     └── config/
         └── AGENTS.md.tmpl      # Antigravity IDE global rules (includes dot_config/kilo/AGENTS.md)
@@ -111,7 +115,7 @@ computer.
 
 ## How the Kilo, Delta, and Gemini copies are connected
 
-One tracked rules file feeds three installed files, so the rules are written
+One tracked rules file feeds four installed files, so the rules are written
 once:
 
 ```text
@@ -121,15 +125,17 @@ dot_config/delta/AGENTS.md.tmpl            -->   ~/.config/delta/AGENTS.md      
   (one line: {{ include "dot_config/kilo/AGENTS.md" }})
 dot_gemini/config/AGENTS.md.tmpl           -->   ~/.gemini/config/AGENTS.md        Antigravity (Gemini)
   (one line: {{ include "dot_config/kilo/AGENTS.md" }})
+dot_copilot/copilot-instructions.md.tmpl   -->   ~/.copilot/copilot-instructions.md  Copilot CLI and VS Code Copilot sessions
+  (one line: {{ include "dot_config/kilo/AGENTS.md" }})
 ```
 
-- The Delta and Gemini files are templates. Each includes the Kilo source, so
+- The Delta, Gemini, and Copilot files are templates. Each includes the Kilo source, so
   chezmoi renders the same rules into the tool-specific Personal AGENTS.md path.
 - The installed files are rendered copies, not symlinks or live references.
   Editing the Kilo source does not update them until `chezmoi apply` runs.
 - Always apply the whole repository. `chezmoi apply` with no path updates all
-  three rule files (and the other managed files) in one step. Applying only the
-  Kilo path leaves the Delta and Gemini copies stale.
+  four rule files (and the other managed files) in one step. Applying only the
+  Kilo path leaves the other copies stale.
 
 ### Update all agent rule copies with one command
 
@@ -147,7 +153,7 @@ chezmoi update
 ```
 
 To check that nothing is pending, run `chezmoi status`; it prints nothing when
-the installed files match the source. Start a new Kilo session or Delta thread
+the installed files match the source. Start a new Kilo, Delta, Gemini, or Copilot session
 to load updated rules; an existing session keeps the instructions it already
 loaded.
 
@@ -160,7 +166,8 @@ There are two locations to keep distinct:
   checkout of `https://github.com/notuntoward/kilo-dotfiles.git`. This is the
   authoritative version you edit and commit.
 - **Installed copies:** `~/.config/kilo/AGENTS.md`, `~/.config/delta/AGENTS.md`,
-  and `~/.gemini/config/AGENTS.md`. Kilo and Delta read their copy when a new
+  `~/.gemini/config/AGENTS.md`, and `~/.copilot/copilot-instructions.md`.
+  Copilot discovers its personal instructions automatically. Kilo and Delta read their copy when a new
   session or thread starts; Gemini reads its rendered copy.
 
 The normal pattern is:
@@ -168,7 +175,7 @@ The normal pattern is:
 1. Edit the source repository in VS Code or Emacs.
 2. Save the edit.
 3. Run `chezmoi apply` in a terminal.
-4. Start a new Kilo session or Delta thread.
+4. Start a new session in the agent you use.
 5. Commit and push the source-repository change.
 
 ## Change a global agent rule
@@ -249,8 +256,8 @@ chezmoi diff
 What they do:
 
 - `git diff -- dot_config/kilo/AGENTS.md` shows the source change you made.
-- `chezmoi apply` updates the installed Kilo file and renders the Delta and
-  Gemini copies from the canonical source.
+- `chezmoi apply` updates the installed Kilo file and renders the Delta,
+  Gemini, and Copilot copies from the canonical source.
 - `chezmoi diff` should produce no output when all installed copies match the
   source state.
 
@@ -260,6 +267,18 @@ Kilo and Delta load their global rules when a session or thread starts. After
 running `chezmoi apply`, start a new Kilo session or Delta thread; an existing
 session continues using the rules it already loaded. Start a new Gemini
 conversation to load its rendered copy.
+
+Start a new Copilot CLI or VS Code Copilot session to load its personal
+instructions. In Copilot CLI, run `/instructions` and confirm
+`~/.copilot/copilot-instructions.md` is listed and enabled.
+If `COPILOT_HOME` is set to another directory, ensure that directory receives
+the generated file instead; this template targets the default home.
+See [Copilot instruction discovery](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions)
+and [VS Code custom instructions](https://code.visualstudio.com/docs/copilot/customization/custom-instructions).
+
+These local copies do not configure GitHub-hosted agents or AI products that
+do not read these locations. On other machines, run `chezmoi update` to pull
+the updated repository and apply its managed copies, then start new sessions.
 
 ### Commit and push
 

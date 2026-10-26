@@ -20,8 +20,8 @@ its original repository is unavailable. Check the original repository first.
 Leave existing vault links and settings untouched. Ask for access only if the
 required original checkout or runtime target is actually unavailable.
 
-These rules apply to agent sessions that load this file through Kilo, Delta, or
-Gemini. Project-level `AGENTS.md` files are loaded after this file and may
+These rules apply to agent sessions that load this file through Kilo, Delta,
+Gemini, or Copilot. Project-level `AGENTS.md` files are loaded after this file and may
 supplement or override these rules.
 
 ## Rule: Conditional rules
@@ -74,9 +74,11 @@ required for correctness.
 ## Rule: Updating these global rules
 
 This file is managed by the `notuntoward/kilo-dotfiles` repository through
-chezmoi. It is the canonical source for Kilo, Delta, and Gemini global rules;
-chezmoi templates install generated copies at `~/.config/delta/AGENTS.md` and
-`~/.gemini/config/AGENTS.md`. Delta reads its copy as Personal AGENTS.md. Keep
+chezmoi. It is the canonical source for Kilo, Delta, Gemini, and Copilot global rules;
+chezmoi templates install generated copies at `~/.config/delta/AGENTS.md`,
+`~/.gemini/config/AGENTS.md`, and `~/.copilot/copilot-instructions.md`.
+Delta reads its copy as Personal AGENTS.md. Copilot CLI and Copilot sessions
+in VS Code discover their copy as personal, always-on instructions. Keep
 the generated copies sourced from this file. When the user asks to add, remove,
 or revise a global rule, explain that the canonical source and user instructions
 are in that repository's `README.md`:
@@ -97,21 +99,29 @@ dotfiles repository), follow exactly this procedure:
 1. Find the source repository with `chezmoi source-path` (normally
    `~/.local/share/chezmoi`). Work there, not in a worktree under its
    `.kilo/worktrees/` directory and not in any project repository.
-2. Edit ONLY `dot_config/kilo/AGENTS.md` in that source repository. Never write
+2. For rule changes, edit ONLY `dot_config/kilo/AGENTS.md` in that source repository.
+   Change templates or documentation only when the user requests integration changes. Never write
    to the installed files `~/.config/kilo/AGENTS.md`,
-   `~/.config/delta/AGENTS.md`, or `~/.gemini/config/AGENTS.md`, and never edit
-   the `AGENTS.md.tmpl` files: they only `include` the Kilo source.
+   `~/.config/delta/AGENTS.md`, `~/.gemini/config/AGENTS.md`, or
+   `~/.copilot/copilot-instructions.md`. Templates only `include` the Kilo source.
 3. Preserve the file's existing line endings (check before editing).
-4. Run `chezmoi apply` with no path, which renders all three installed copies.
-   Applying only the Kilo path leaves the Delta and Gemini copies stale.
+4. Run `chezmoi apply` with no path, which renders all four installed copies.
+   Applying only the Kilo path leaves the other copies stale.
 5. Verify: `chezmoi diff` prints nothing, and a distinctive phrase from the
-   change is present in all three installed files.
+   change is present in all four installed files.
 6. Commit the source repository change following the "Git commit messages" rule
    (message file and `git commit -F`; no hook bypass), then `git push`. Report
-   the commit hash and that a new Kilo/Delta/Gemini session is needed to load
+   the commit hash and that a new Kilo/Delta/Gemini/Copilot session is needed to load
    the updated rules.
 7. Do not touch the project repository's own `AGENTS.md` as part of this; move
    or delete project-level copies only when the user asks.
+
+If `COPILOT_HOME` overrides `~/.copilot`, verify that Copilot's actual home
+receives the generated instructions before claiming its rules are refreshed.
+Use `/instructions` in a new Copilot CLI session to confirm the personal file
+is discovered and enabled. Local files do not configure GitHub-hosted agents
+or other AI products that do not discover these paths. On another machine,
+run `chezmoi update` to pull the committed source and apply all managed copies.
 ## Debugging
 
 This section collects every rule about finding the cause of a bug, from
@@ -408,6 +418,19 @@ Before writing new logic, always check two layers in order:
 Before writing code, confirm that the same behavior doesn't already exist in
 the platform libraries or this codebase, and that a later change won't require
 maintaining multiple copies.
+
+## Rule: Git identity and attribution
+
+- Never add AI attribution, branding, signatures, or promotional text to commit
+  messages, pull request titles, or pull request descriptions.
+- Do not add AI-related Co-authored-by, Signed-off-by, Generated-by, or similar
+  trailers unless I explicitly request them.
+- Use my existing Git author and committer configuration. Never substitute an
+  AI identity or override Git identity through flags or environment variables.
+- Before committing, verify the author, committer, and complete commit message
+  comply with these rules.
+- Do not rewrite existing commits solely to remove attribution unless I
+  explicitly ask.
 
 ## Rule: Git commit messages
 
