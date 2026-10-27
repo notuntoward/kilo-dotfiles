@@ -4,8 +4,12 @@ param(
 )
 
 if (-not $CommitMsgFile -or -not (Test-Path -LiteralPath $CommitMsgFile)) {
-    exit 0
+    Write-Error "COMMIT REJECTED: Commit message file is missing."
+    exit 1
 }
+
+& node (Join-Path $PSScriptRoot 'ai-attribution.cjs') message $CommitMsgFile
+if ($LASTEXITCODE -ne 0) { exit 1 }
 
 $rawLines = Get-Content -LiteralPath $CommitMsgFile -Encoding UTF8
 $lines = @($rawLines | Where-Object { $_ -notmatch '^\s*#' } | ForEach-Object { $_ -replace '\r$', '' })

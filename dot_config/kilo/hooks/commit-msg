@@ -1,11 +1,15 @@
 #!/bin/bash
 # Global commit-msg hook enforcing structure and content rules from ~/.config/kilo/AGENTS.md.
-# Runs natively in POSIX bash with zero external dependencies.
+# Formatting runs in Bash; attribution policy uses Node.js.
 
 MSG_FILE="$1"
 if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
-    exit 0
+    echo "COMMIT REJECTED: Commit message file is missing." >&2
+    exit 1
 fi
+
+HOOK_DIR="$(cd -- "$(dirname -- "$0")" && pwd)" || exit 1
+node "$HOOK_DIR/ai-attribution.cjs" message "$MSG_FILE" || exit 1
 
 # Read non-comment lines with CR stripped
 mapfile -t LINES < <(grep -v "^[[:space:]]*#" "$MSG_FILE" | sed 's/\r$//')

@@ -1,0 +1,92 @@
+name: No AI attribution
+
+on:
+  workflow_call:
+    inputs:
+      policy-ref:
+        description: Immutable kilo-dotfiles commit containing the policy
+        required: true
+        type: string
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: write
+
+jobs:
+  attribution:
+    name: No AI attribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark current PR head pending
+        if: github.event_name == 'pull_request_target'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              ...context.repo, sha: context.payload.pull_request.head.sha,
+              state: 'pending', context: 'No AI attribution',
+              description: 'Checking PR metadata and commit messages',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });
+      - name: Check out trusted policy only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: notuntoward/kilo-dotfiles
+          ref: ${{ inputs.policy-ref || github.sha }}
+          persist-credentials: false
+      - name: Run policy regressions
+        run: node --test tests/ai-attribution.test.cjs
+      - name: Check PR metadata and every commit
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const { findViolation } = require(process.env.GITHUB_WORKSPACE + '/dot_config/kilo/hooks/ai-attribution.cjs');
+            if (!context.payload.pull_request) {
+              // Manual validation exercises the actual shared policy, without creating a PR.
+              if (!findViolation('Co-authored-by: Copilot <copilot@example.com>')) {
+                throw new Error('Attribution policy self-check failed');
+              }
+              if (findViolation('Fix Copilot integration\n\nCo-authored-by: Jane Doe <jane@example.com>')) {
+                throw new Error('Attribution policy rejected legitimate content');
+              }
+              return;
+            }
+            const number = context.payload.pull_request.number;
+            const { data: pr } = await github.rest.pulls.get({ ...context.repo, pull_number: number });
+            if (pr.head.sha !== context.payload.pull_request.head.sha) {
+              throw new Error('PR head changed; a check for the current head is required');
+            }
+            for (const [label, text] of [['title', pr.title], ['description', pr.body || '']]) {
+              const reason = findViolation(text);
+              if (reason) throw new Error(`${reason} in PR ${label}`);
+            }
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              ...context.repo, pull_number: number, per_page: 100
+            });
+            if (commits.length !== pr.commits) {
+              throw new Error('GitHub did not return every PR commit; refusing partial validation');
+            }
+            for (const commit of commits) {
+              const reason = findViolation(commit.commit.message);
+              if (reason) throw new Error(`${reason} in commit ${commit.sha}`);
+            }
+            const { data: current } = await github.rest.pulls.get({ ...context.repo, pull_number: number });
+            if (current.head.sha !== pr.head.sha || current.title !== pr.title || current.body !== pr.body) {
+              throw new Error('PR changed during validation; rerun the policy check');
+            }
+      - name: Publish result on the PR head, not the privileged base ref
+        if: always() && github.event_name == 'pull_request_target'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          POLICY_RESULT: ${{ job.status }}
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              ...context.repo, sha: context.payload.pull_request.head.sha,
+              state: process.env.POLICY_RESULT === 'success' ? 'success' : 'failure',
+              context: 'No AI attribution',
+              description: process.env.POLICY_RESULT === 'success' ? 'No prohibited AI attribution found' : 'Attribution policy failed; inspect the workflow',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });

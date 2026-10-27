@@ -2,3 +2,6 @@
 # by `chezmoi apply`. Only files with a `dot_` prefix are installed
 # automatically, but this protects against accidental additions.
 README.md
+.github
+tests
+scripts

@@ -426,8 +426,10 @@ installed into `~/.config/kilo/` by `chezmoi apply`.
 
 | File | Purpose | Platform |
 |---|---|---|
-| `hooks/commit-msg` | Git hook entry point that rejects hard-wrapped commit-message body paragraphs | All, with required shell/PowerShell support |
-| `hooks/commit-msg.ps1` | PowerShell implementation for the commit-message check | Windows; PowerShell Core on macOS/Linux |
+| `hooks/commit-msg` | Rejects AI attribution before checking commit-message structure | Git Bash/POSIX Bash and Node.js |
+| `hooks/commit-msg.ps1` | PowerShell entry point for the same attribution and formatting checks | Windows; PowerShell Core on macOS/Linux, plus Node.js |
+| `hooks/ai-attribution.cjs` | Shared attribution policy for local hooks and GitHub PR checks | Node.js |
+| `hooks/pre-push` | Checks introduced commit messages, then preserves the Git LFS hook | POSIX shell, Node.js and Git LFS |
 | `tools/obsidian-relink.ps1` | Repoints an Obsidian vault plugin path to a selected checkout | Windows primary; manual symlink workflow elsewhere |
 
 To add a shared helper, add it under `dot_config/kilo/tools/`, test it, then
@@ -454,6 +456,61 @@ git config --global core.hooksPath "$HOME/.config/kilo/hooks"
 
 After this, Git invokes the commit-msg hook for commits in every repository on
 the machine.
+
+### Attribution enforcement
+
+The shared policy rejects AI co-author/sign-off trailers and generation or
+promotional credits. Legitimate human co-authors and technical mentions such as
+"Fix Copilot integration" remain allowed. Merge and revert messages are checked
+before their formatting exceptions. Matching is case-insensitive, normalizes
+Unicode width variants, and removes common invisible separators; it is a
+maintained denylist, not a detector of whether code was AI-assisted.
+
+The push guard checks every introduced commit, not just the tip. It handles
+deletions, force updates and new branches/tags. Existing history already on the
+destination is not retroactively rejected. If destination history is missing
+locally, fetch its branches and tags before retrying. Node.js or policy errors
+block the operation rather than silently permitting it.
+
+Run the local regressions from this checkout:
+
+```sh
+node --test tests/ai-attribution.test.cjs
+```
+
+`.github/workflows/no-ai-attribution.yml` is the reusable GitHub implementation.
+Each protected repository has a small `no-ai-attribution-pr.yml` caller pinned
+to an immutable commit in this repository. It handles PR creation, title/body
+edits, reopening, new commits and ready-for-review events. Only the trusted
+policy is checked out: no PR code is executed. Read-only content/PR access and
+commit-status write permission are sufficient, including for fork PRs.
+
+The required context is **No AI attribution**, published on the actual PR head
+SHA (a `pull_request_target` job itself runs against the base ref). Every PR
+commit is checked; incomplete GitHub pagination fails closed. A separate active
+default-branch ruleset requires that status from GitHub Actions, with no bypass
+actors, without replacing existing review/build protections.
+
+To deploy or update the pinned caller and additive ruleset for owned GitHub
+repositories discovered under a local checkout directory:
+
+```sh
+node scripts/deploy-attribution.cjs <repos-root> <policy-commit-sha> <report-json>
+```
+
+This command creates policy-only commits on the remote default branches with
+the configured Git author identity. It leaves local branches and dirty files
+untouched. Run only with explicit authorization. Archived repositories are
+reported as skipped; inaccessible repositories or unsupported GitHub plan
+protections are reported as failures, not silently treated as protected.
+Commit and push the shared policy before deploying its immutable reference.
+
+Local hooks are not a security boundary: they can be overridden. GitHub required
+checks block merging, not PR creation, and repository administrators can change
+the rules. Direct pushes to protected default branches also need the required
+status. PR metadata edits trigger asynchronous validation; do not merge while
+that validation is pending. Other machines need `chezmoi update`, Node.js,
+Git LFS and the hooks-path setting above.
 
 ---
 

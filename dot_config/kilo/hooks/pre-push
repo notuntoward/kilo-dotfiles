@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+HOOK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+refs_file="$(mktemp)"
+trap 'rm -f -- "$refs_file"' EXIT
+trap 'exit 1' HUP INT TERM
+cat > "$refs_file"
+node "$HOOK_DIR/ai-attribution.cjs" push "$2" < "$refs_file"
+# Preserve Git LFS's view of the same ref-update input.
+command -v git-lfs >/dev/null 2>&1 || {
+    printf '%s\n' 'PUSH REJECTED: git-lfs is required by the existing global hook.' >&2
+    exit 2
+}
+git lfs pre-push "$@" < "$refs_file"
