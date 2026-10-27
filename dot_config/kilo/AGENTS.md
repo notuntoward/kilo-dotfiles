@@ -421,6 +421,15 @@ maintaining multiple copies.
 
 ## Rule: Git identity and attribution
 
+**This prohibition is mechanically enforced.** Installed Git hooks reject
+prohibited AI attribution in commits and outgoing pushes. Protected GitHub
+repositories fail the required PR check and block merging until prohibited
+attribution is removed. Do not waste the user's time, tokens, or money
+submitting content that will be rejected. Check the complete message or PR
+text before the first attempt. Never bypass, disable, or weaken these checks.
+Legitimate human attribution, Dependabot authorship, and automatic
+Sourcery/CI labels remain allowed.
+
 - Never add AI attribution, branding, signatures, or promotional text to commit
   messages, tags, Git notes, pull request titles, or pull request descriptions.
 - Do not add AI-related Co-authored-by, Signed-off-by, Generated-by, or similar
