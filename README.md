@@ -755,3 +755,5 @@ Resolve any conflicts in your editor, then run:
 git add <resolved-file>
 git rebase --continue
 git push
+
+<!-- Temporary policy enforcement smoke check; never merge. -->
