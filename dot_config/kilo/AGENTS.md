@@ -422,13 +422,26 @@ maintaining multiple copies.
 ## Rule: Git identity and attribution
 
 - Never add AI attribution, branding, signatures, or promotional text to commit
-  messages, pull request titles, or pull request descriptions.
+  messages, tags, Git notes, pull request titles, or pull request descriptions.
 - Do not add AI-related Co-authored-by, Signed-off-by, Generated-by, or similar
-  trailers unless I explicitly request them.
+  trailers. A request to commit, push, create a PR, or update a PR is never
+  permission to add AI attribution.
 - Use my existing Git author and committer configuration. Never substitute an
   AI identity or override Git identity through flags or environment variables.
 - Before committing, verify the author, committer, and complete commit message
-  comply with these rules.
+  comply with these rules. Inspect the literal message payload, including
+  trailers; do not rely on a passing hook, a template, or a generated summary.
+- Before pushing, inspect the messages of every outgoing commit and any tags
+  or Git notes being published for AI attribution. If prohibited attribution
+  is found, stop and report it; do not push it or rewrite existing history
+  without my explicit authorization.
+- Before creating or updating a PR, inspect the exact title and complete
+  description to be submitted and remove AI attribution. Do not copy AI
+  attribution from commit messages, templates, or generated summaries.
+- Preserve legitimate human attribution. Dependabot authorship is permitted
+  on Dependabot PRs and their existing commits; leave it unchanged. This
+  exception does not permit Copilot or other AI co-author trailers, branding,
+  or signatures on Dependabot commits or PRs.
 - Do not rewrite existing commits solely to remove attribution unless I
   explicitly ask.
 
