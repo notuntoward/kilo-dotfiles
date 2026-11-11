@@ -647,14 +647,19 @@ If the commit hook identifies specific hard-wrapped paragraphs:
 
 Apply this rule only when the workspace runs on Windows.
 
-- **Prefer POSIX Bash / Git Bash and Node.js for terminal commands.** Git on Windows provides Git Bash (/bin/bash, /usr/bin/bash), and Node.js is installed.
-- **Avoid running commands in PowerShell.** PowerShell on Windows introduces severe traps for AI tools:
+- **Always run terminal commands in Git Bash, never in PowerShell.** This is mandatory, not a preference. The terminal tool on Windows may default to PowerShell or `pwsh`; never accept that default. Set the tool shell to Git Bash if it supports a shell setting, or wrap the entire command as `& "C:\Program Files\Git\bin\bash.exe" -lc "<command>"`. Do not use bare `bash`: on this machine it resolves to WSL, which fails when no distribution is installed.
+- **Locate Git Bash reliably:** prefer `C:\Program Files\Git\bin\bash.exe`, then `C:\Program Files\Git\usr\bin\bash.exe`. On another machine, derive it with `where.exe git` or `git --exec-path`.
+- **Preflight every command before running it.** Scan the literal command text for PowerShell-only tokens; if any appear, rewrite the command as POSIX Bash first. Forbidden tokens include `Get-ChildItem`, `Get-Content`, `Set-Content`, `Add-Content`, `Out-File`, `Remove-Item`, `Test-Path`, `New-Item`, `Copy-Item`, `Move-Item`, `Rename-Item`, `Select-String`, `Select-Object`, `Where-Object`, `ForEach-Object`, `Write-Output`, `Write-Host`, `Start-Process`, `Invoke-*`, `$env:`, `$LASTEXITCODE`, `if ($?)`, backticks used as escapes, `@(...)`, `-LiteralPath`, `-ErrorAction`, and `.ps1` scripts.
+- **Use Bash equivalents:** `ls`, `cat`, `printf`, `grep`, `sed`, `awk`, `find`, `test`/`[ ]`, `mkdir -p`, `cp`, `mv`, `rm`, `command -v`, `$VAR`, `$?`, `&&`/`||`, and heredocs.
+- **Do not retry a failed command in PowerShell.** A command that fails because it was written for PowerShell must be rewritten in Git Bash.
+- PowerShell traps this rule exists to avoid:
   1. **Escape character collision**: In PowerShell, backticks (``` ` ```) are escape characters (``` `n ``` = newline, ``` `t ``` = tab, ``` `a ``` = bell, ``` `0 ``` = null). Passing TypeScript, Markdown, or shell snippets containing backticks into PowerShell commands injects ASCII control characters and corrupts files.
   2. **Encoding corruption**: Windows PowerShell 5.1's `Set-Content` and output redirection (`>`) default to ANSI/Windows-1252, which destroys UTF-8 characters (em-dashes, typographic quotes, mathematical symbols).
   3. **No `&&` chaining in Windows PowerShell 5.1**: Windows PowerShell 5.1 does not support `&&` or `||`, failing with `The token '&&' is not a valid statement separator in this version`.
   4. **No heredocs (`<<'EOF'`)**: PowerShell does not support POSIX heredocs.
-- When editing or creating files, use the agent's dedicated file tools (`edit_file`) or a Node.js script (`node -e "..."`), NEVER `(Get-Content file) -replace ... | Set-Content file`.
+- When editing or creating files, use the dedicated file tools or a Node.js script, NEVER PowerShell. Write commit messages with a file tool or a Bash heredoc and pass them with `git commit -F <file>`, never PowerShell redirection.
 - For string replacement or script tasks, run Node.js or POSIX bash scripts.
+- This rule applies to every repository on Windows. Project-level `AGENTS.md` may add constraints but must not weaken it. If a genuinely Windows-native operation has no Bash equivalent, invoke the native executable directly from Git Bash; never route file content, encoding, or general shell work through PowerShell.
 
 ## Rule: Git line endings
 
