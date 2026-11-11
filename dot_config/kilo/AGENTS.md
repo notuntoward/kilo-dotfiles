@@ -906,6 +906,17 @@ Before declaring a task complete:
 - Do not claim a test, build, installation, or artifact verification passed
   unless it actually completed successfully.
 
+## Rule: Obsidian settings tabs
+
+Apply this rule to every Obsidian plugin whose `manifest.json` `minAppVersion` is 1.13.0 or newer.
+
+- Implement plugin settings with the declarative API only: `getSettingDefinitions()`, plus `getControlValue` and `setControlValue` for custom storage.
+- Never define `display()` in a `PluginSettingTab`. Obsidian 1.13 deprecated it and does not call it when `getSettingDefinitions()` returns a non-empty array; a `display()` implementation silently diverges from the live settings.
+- Never build settings rows with `new Setting()` inside a `PluginSettingTab` or its `display()`. Use `control` entries, or `render` callbacks for custom rows; `new Setting()` remains fine in modals and other UI.
+- Refresh dynamic settings with `this.update()`, not `this.display()`. Call `update()` after mutating state that changes `visible`, `disabled`, or the row set.
+- Enforce it in ESLint with `obsidianmd/settings-tab/no-deprecated-display`, `obsidianmd/settings-tab/prefer-setting-definitions`, and `obsidianmd/settings-tab/prefer-update-over-display` set to `error`.
+- This applies to every Obsidian plugin repository, including new plugins from the template. Project-level `AGENTS.md` files may add constraints but must not weaken it.
+
 ## Rule: Obsidian pop-out windows
 
 Apply this rule when writing or reviewing code for an Obsidian plugin.
