@@ -903,8 +903,10 @@ This verification is identical on Windows, macOS, and Linux.
    appear missing after a link change as erased; plugin data belongs to the
    loaded plugin directory. Keep the link stable and preserve that data.
 5. Change the link only when the user explicitly asks to load a different
-   checkout. Explain that this also changes the settings location, and preserve
-   the original target and settings so they can be restored.
+   checkout. Use `node ~/.config/kilo/tools/obsidian-relink.mjs --vault <vault>`
+   (it takes the vault path explicitly and never scans), explain that this also
+   changes the settings location, and preserve the original target and settings
+   so they can be restored.
 
 ### If Obsidian does not show the change
 

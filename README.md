@@ -89,7 +89,7 @@ that the current repository uses the relevant technology or workflow.
 │       │   ├── commit-msg      # Git hook entry point
 │       │   └── commit-msg.ps1  # PowerShell hook implementation
 │       └── tools/
-│           └── obsidian-relink.ps1  # Obsidian plugin relinking helper
+│           └── obsidian-relink.mjs  # Cross-platform Obsidian plugin relinking helper
 ├── dot_copilot/
 │   └── copilot-instructions.md.tmpl  # Copilot personal rules (includes the Kilo source)
 └── dot_gemini/
@@ -471,12 +471,25 @@ installed into `~/.config/kilo/` by `chezmoi apply`.
 | `hooks/commit-msg.ps1` | PowerShell entry point for the same attribution and formatting checks | Windows; PowerShell Core on macOS/Linux, plus Node.js |
 | `hooks/ai-attribution.cjs` | Shared attribution policy for local hooks and GitHub PR checks | Node.js |
 | `hooks/pre-push` | Checks introduced commit messages, then preserves the Git LFS hook | POSIX shell, Node.js and Git LFS |
-| `tools/obsidian-relink.ps1` | Repoints an Obsidian vault plugin path to a selected checkout | Windows primary; manual symlink workflow elsewhere |
+| `tools/obsidian-relink.mjs` | Repoints an Obsidian vault plugin path to a selected checkout | Node.js on Windows, macOS, and Linux |
 
 To add a shared helper, add it under `dot_config/kilo/tools/`, test it, then
 commit and push it. Do not place one-off copies in `~/.local/bin/`,
 `C:\scripts\`, or another unmanaged location if the tool is intended to be
 available consistently on multiple machines.
+
+### Relink an Obsidian plugin
+
+The helper takes the vault path explicitly and never searches for a vault:
+
+```sh
+node ~/.config/kilo/tools/obsidian-relink.mjs --vault /path/to/vault
+node ~/.config/kilo/tools/obsidian-relink.mjs --vault /path/to/vault --source /path/to/plugin
+```
+
+It reuses an existing link name, otherwise uses the manifest id. Pass `--name` to
+choose the folder. On Windows it creates a junction; elsewhere a directory
+symlink. It refuses to delete a real plugin directory.
 
 ## Enable the Git commit-msg hook
 
