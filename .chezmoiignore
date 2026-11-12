@@ -3,5 +3,6 @@
 # automatically, but this protects against accidental additions.
 README.md
 .github
+docs
 tests
 scripts

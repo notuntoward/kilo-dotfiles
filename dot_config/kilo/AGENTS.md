@@ -3,17 +3,19 @@
 ## Delta checkout authorization
 
 I explicitly authorize agents to edit, test, and build directly in my original
-repositories under `C:Usersscottepos` without attaching them to Delta.
+repositories under `C:\Users\scott\repos` without attaching them to Delta.
 This chooses direct editing under Delta's exception for user-authorized work
 outside attached worktrees. Do not request attachment, select Existing Local
 Checkout, or create another checkout.
 
 Before any edit, test, build, or consumer check, print the current directory
-and resolve and state the original repository's Git root. If the thread starts
-in an isolated Delta checkout, use its `local` remote to locate the original,
-then run project commands from that original checkout. For a runtime-loaded
-plugin, also resolve and state the existing vault plugin path and its link
-target, and verify that target matches the Git root before proceeding.
+and resolve and state the repository's Git root. If the thread starts in an
+isolated Delta checkout, use its `local` remote to locate the original, then
+run project commands from that original checkout.
+
+For a runtime-loaded plugin, the vault link is not part of this check. Verify
+the artifact in the repository root as described in "Build Obsidian plugins
+(vault-independent)". Never search the machine for a vault.
 
 A consumer reported missing from an isolated checkout is not evidence that
 its original repository is unavailable. Check the original repository first.
@@ -84,6 +86,11 @@ or revise a global rule, explain that the canonical source and user instructions
 are in that repository's `README.md`:
 
 https://github.com/notuntoward/kilo-dotfiles
+
+To add another AI harness, follow "Adding another AI harness" in that repository's
+`README.md`: create a template that includes this file, run `chezmoi apply`, and
+verify the rendered copy. Kilo's non-rule configuration (the Git Bash `shell`
+setting and the permission cleanup) is recorded in `docs/kilo-config.md`.
 
 Do not edit the installed `~/.config/kilo/AGENTS.md` directly unless the user
 explicitly requests a temporary local change. For a persistent change, edit the
@@ -643,25 +650,80 @@ If the commit hook identifies specific hard-wrapped paragraphs:
 5. Re-run `git commit -F <message-file>` without a hook bypass.
 6. Do not rewrite code because the commit-message hook rejected formatting.
 
-## Rule: Windows command-line safety
+## Rule: Shell selection and command-line safety
 
-Apply this rule only when the workspace runs on Windows.
+Apply the Windows-specific parts only when the workspace runs on Windows. The
+"never author PowerShell" rule applies on every platform and in every AI host.
 
-- **Always run terminal commands in Git Bash, never in PowerShell.** This is mandatory, not a preference. The terminal tool on Windows may default to PowerShell or `pwsh`; never accept that default. Set the tool shell to Git Bash if it supports a shell setting, or wrap the entire command as `& "C:\Program Files\Git\bin\bash.exe" -lc "<command>"`. Do not use bare `bash`: on this machine it resolves to WSL, which fails when no distribution is installed.
-- **Resolve a POSIX shell once per Windows session.** Try, in order, `C:\Program Files\Git\bin\bash.exe`, `C:\Program Files\Git\usr\bin\bash.exe`, MSYS2 `C:\tools\msys64\usr\bin\bash.exe`, Cygwin `C:\cygwin64\bin\bash.exe`, then WSL only when `wsl.exe -l -q` lists at least one distribution. Derive Git Bash from `where.exe git` or `git --exec-path`, and probe each candidate by running it with `-lc 'echo ok'`; use the first that succeeds.
-- **Never fall back to PowerShell, and warn when a fallback is used.** If the command must run in MSYS2, Cygwin, or WSL because Git Bash is missing, tell the user once which shell was used and that Git for Windows is the expected install; do not fail silently.
-- **Stop when no POSIX shell exists.** If none of the candidates works, state that `C:\Program Files\Git\bin\bash.exe` and the fallbacks are missing, name the expected path, and do not run the command in PowerShell; use the file tools or a Node.js script instead, and ask the user to install Git for Windows.
-- **Preflight every command before running it.** Scan the literal command text for PowerShell-only tokens; if any appear, rewrite the command as POSIX Bash first. Forbidden tokens include `Get-ChildItem`, `Get-Content`, `Set-Content`, `Add-Content`, `Out-File`, `Remove-Item`, `Test-Path`, `New-Item`, `Copy-Item`, `Move-Item`, `Rename-Item`, `Select-String`, `Select-Object`, `Where-Object`, `ForEach-Object`, `Write-Output`, `Write-Host`, `Start-Process`, `Invoke-*`, `$env:`, `$LASTEXITCODE`, `if ($?)`, backticks used as escapes, `@(...)`, `-LiteralPath`, `-ErrorAction`, and `.ps1` scripts.
-- **Use Bash equivalents:** `ls`, `cat`, `printf`, `grep`, `sed`, `awk`, `find`, `test`/`[ ]`, `mkdir -p`, `cp`, `mv`, `rm`, `command -v`, `$VAR`, `$?`, `&&`/`||`, and heredocs.
-- **Do not retry a failed command in PowerShell.** A command that fails because it was written for PowerShell must be rewritten in Git Bash.
-- PowerShell traps this rule exists to avoid:
-  1. **Escape character collision**: In PowerShell, backticks (``` ` ```) are escape characters (``` `n ``` = newline, ``` `t ``` = tab, ``` `a ``` = bell, ``` `0 ``` = null). Passing TypeScript, Markdown, or shell snippets containing backticks into PowerShell commands injects ASCII control characters and corrupts files.
-  2. **Encoding corruption**: Windows PowerShell 5.1's `Set-Content` and output redirection (`>`) default to ANSI/Windows-1252, which destroys UTF-8 characters (em-dashes, typographic quotes, mathematical symbols).
-  3. **No `&&` chaining in Windows PowerShell 5.1**: Windows PowerShell 5.1 does not support `&&` or `||`, failing with `The token '&&' is not a valid statement separator in this version`.
-  4. **No heredocs (`<<'EOF'`)**: PowerShell does not support POSIX heredocs.
-- When editing or creating files, use the dedicated file tools or a Node.js script, NEVER PowerShell. Write commit messages with a file tool or a Bash heredoc and pass them with `git commit -F <file>`, never PowerShell redirection.
-- For string replacement or script tasks, run Node.js or POSIX bash scripts.
-- This rule applies to every repository on Windows. Project-level `AGENTS.md` may add constraints but must not weaken it. If a genuinely Windows-native operation has no Bash equivalent, invoke the native executable directly from Git Bash; never route file content, encoding, or general shell work through PowerShell.
+### Detect the shell once per session
+
+Before the first terminal command in a session, print the active shell:
+
+```sh
+printf 'shell=%s\n' "$BASH_VERSION"
+```
+
+- If it prints a version, you are in bash. Write POSIX commands directly, with
+  no launcher prefix and no `bash -c` wrapper.
+- If it prints nothing, or the command fails with PowerShell syntax, the host is
+  PowerShell. Do not write PowerShell. Use the host's Git Bash launcher for each
+  command (below), or ask the user once to set the host's shell to Git Bash.
+  State the fallback once and continue; do not debate whether the launcher
+  counts as PowerShell.
+
+Kilo can run Git Bash directly with
+`"shell": "C:\\Program Files\\Git\\bin\\bash.exe"` in `kilo.jsonc`. The setup is
+recorded in `docs/kilo-config.md` in the kilo-dotfiles repository. With that
+setting active, detection prints a bash version and no launcher is needed.
+
+### Never author PowerShell
+
+PowerShell is forbidden in every repository, on every platform, and in every AI
+host. Do not write PowerShell cmdlets or syntax, do not run `powershell`, `pwsh`,
+or `-EncodedCommand`, and do not run `.ps1` scripts. If a task appears to need
+PowerShell, use POSIX bash, Node.js, or the file tools instead.
+
+Forbidden tokens include `Get-ChildItem`, `Get-Content`, `Set-Content`,
+`Add-Content`, `Out-File`, `Remove-Item`, `Test-Path`, `New-Item`, `Copy-Item`,
+`Move-Item`, `Rename-Item`, `Select-String`, `Select-Object`, `Where-Object`,
+`ForEach-Object`, `Write-Output`, `Write-Host`, `Start-Process`, `Invoke-*`,
+`$env:`, `$LASTEXITCODE`, `if ($?)`, backticks used as escapes, `@(...)`,
+`-LiteralPath`, `-ErrorAction`, and `.ps1` scripts.
+
+### Git Bash launcher (only when detection shows PowerShell)
+
+On Windows, use this exact form for each command:
+
+```text
+& "C:\Program Files\Git\bin\bash.exe" -lc '<posix command>'
+```
+
+- Do not use bare `bash`: on this machine it may resolve to WSL.
+- If Git Bash is missing, stop and ask the user to install Git for Windows. Do
+  not fall back to PowerShell.
+- If you must use MSYS2, Cygwin, or WSL because Git Bash is unavailable, say so
+  once and name the shell you used.
+
+### Use POSIX equivalents
+
+Use `ls`, `cat`, `printf`, `grep`, `sed`, `awk`, `find`, `test`/`[ ]`,
+`mkdir -p`, `cp`, `mv`, `rm`, `command -v`, `$VAR`, `$?`, `&&`/`||`, and
+heredocs. Do not retry a failed command in PowerShell; rewrite it in POSIX bash.
+
+### Why this rule exists
+
+PowerShell has caused real corruption:
+
+1. Backticks are escape characters (`` `n ``, `` `t ``, `` `a ``, `` `0 ``), so
+   passing Markdown or TypeScript through PowerShell injects control characters.
+2. Windows PowerShell 5.1 `Set-Content` and `>` default to ANSI/Windows-1252,
+   which destroys UTF-8 characters.
+3. Windows PowerShell 5.1 has no `&&` or `||` chaining.
+4. PowerShell has no POSIX heredocs (`<<'EOF'`).
+
+Edit files with the dedicated file tools, never PowerShell redirection. For
+structured data or string replacement, use Node.js or POSIX bash. Project-level
+`AGENTS.md` files may add constraints but must not weaken this rule.
 
 ## Rule: Git line endings
 
@@ -795,64 +857,60 @@ thread.
   directly in that original cloned repository. Do not treat a Delta worktree
   build as a build of the runtime artifact.
 
-## Rule: Build Obsidian plugins in the vault-linked checkout
+## Rule: Build Obsidian plugins (vault-independent)
 
-Apply this rule when an Obsidian plugin is loaded from a built artifact in a
-vault's plugin folder and that folder is linked to a development checkout.
+Apply this rule when an Obsidian plugin's built artifact is loaded from a
+vault's plugin folder.
 
-### Stop gate before editing
+### Do not find, verify, or search for the vault
 
-Before editing, testing, or building for this plugin:
+The vault-to-repo link is stored in the vault's `.obsidian/plugins/<name>` entry
+and points at the repository. The repository has no record of it, and no OS API
+lists links that point at a path; finding them requires enumerating candidate
+locations. That search is forbidden.
 
-1. Resolve the exact plugin folder Obsidian loads and its symlink or junction
-   target (the original cloned repository on disk).
-2. Resolve the Git root of the checkout you intend to use.
-3. Compare those paths. Proceed only when the checkout Git root is the resolved
-   link target. State both paths before the first edit. Repository names,
-   manifest IDs, branches, matching commits, and attached project names do not
-   prove that the paths match.
-4. Do not ask the user to attach the repository to Delta, and do not edit or
-   build in an isolated Delta worktree. Always switch your working directory to
-   the resolved vault-linked original checkout on disk and do all edits, tests,
-   and builds directly there.
-5. Only stop and ask the user if no vault link exists or the target directory
-   on disk is missing.
+- Never run `find`, `rg --files`, `Get-ChildItem -Recurse`, `dir /s`,
+  `where /r`, `Everything`, or any recursive scan above the repository.
+- Never hardcode or ask for a vault path. This rule must work on any machine,
+  with any vault layout, including no vault at all.
+- The vault may be on another drive, in OneDrive, or missing. None of that
+  affects the build.
 
-### Required workflow
+### Verify the artifact, not the vault
 
-1. Identify the exact plugin folder Obsidian loads and resolve its symlink or
-   junction target. Do not infer the target from the manifest ID, repository
-   name, editor workspace, or a nearby folder; these can differ.
-2. If the vault already points to the user's established local clone, use that
-   clone as the canonical runtime checkout. Make or transfer source changes
-   into it, then run the repository's documented production build from its
-   root (for this plugin, `npm run build`). Leave the existing vault link
-   unchanged. A build in a separate IDE worktree or clone does not update the
-   artifact Obsidian loads.
-3. If the linked checkout is unavailable in the current environment, stop and
-   ask the user to make that checkout available. Do not redirect the vault to
-   another checkout or describe a build from elsewhere as the live build.
-4. Before asking the user to reload Obsidian, verify the full path and recent
-   modification time of the built artifact, check a unique fingerprint from
-   the change in that artifact, and confirm the vault's existing link still
-   resolves to the checkout that was built.
+If the repository is linked into a vault, the repository root is the plugin
+directory Obsidian loads. A correct `main.js` in the repository root is
+therefore the file Obsidian loads. Verify only inside the repository:
 
-### What NOT to do
+1. Run the documented production build from the repository root.
+2. Check that `main.js` exists and that its modification time is after the build
+   started.
+3. Check that it contains a unique literal from the change (UI text or an error
+   message; never a minified function name). For minified bundles, use a
+   line-length-safe Node check, not `grep`.
+4. State the absolute path of `main.js` in the repository root.
 
-- Do not repoint, replace, recreate, delete, or toggle the vault's plugin
-  symlink or junction just to expose an IDE worktree. Do not do this for each
-  task or build.
-- Do not copy only `main.js` from a separate worktree into the linked checkout
-  instead of building the source there; that can leave source, tests, and the
-  runtime bundle out of sync.
-- Do not treat settings that appear missing after a link change as erased or
-  tell the user to reinitialize them. Obsidian plugin data (often `data.json`)
-  is tied to the loaded plugin directory; changing the link makes Obsidian
-  read a different checkout's data file. The original settings remain at the
-  previous target. Keep the link stable and preserve that file.
-- Change the link only when the user explicitly requests loading a different
-  checkout. Explain first that this also changes the settings location, and
-  preserve the original target and settings so they can be restored.
+This verification is identical on Windows, macOS, and Linux.
+
+### Editing and building
+
+1. Work in the original cloned repository, not an isolated worktree (see the
+   Delta rule).
+2. Run the documented production build from the repository root.
+3. Never copy only `main.js` from another checkout, never repoint, replace, or
+   delete the vault link, and never ask the user to attach a repository.
+4. Do not change the vault link to expose a worktree. Do not treat settings that
+   appear missing after a link change as erased; plugin data belongs to the
+   loaded plugin directory. Keep the link stable and preserve that data.
+5. Change the link only when the user explicitly asks to load a different
+   checkout. Explain that this also changes the settings location, and preserve
+   the original target and settings so they can be restored.
+
+### If Obsidian does not show the change
+
+Do not search for the vault. State the artifact path and ask the user to confirm
+that the vault's plugin entry still points at this repository. Inspect a vault
+path only if the user names it in that conversation, and only that path.
 
 ## Rule: Node dependency changes
 

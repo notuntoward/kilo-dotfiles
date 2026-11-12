@@ -9,6 +9,8 @@ helper scripts. chezmoi installs the canonical rules at
 
 - To change a global rule, see [Change a global agent rule](#change-a-global-agent-rule).
 - To pull a change made on another machine, see [Pull changes from another machine](#pull-changes-from-another-machine).
+- To add another AI harness, see [Adding another AI harness](#adding-another-ai-harness).
+- To reproduce Kilo's shell and permission setup, see [Kilo shell and permissions](#kilo-shell-and-permissions).
 - To set up a new computer, see [Set up a new computer](#set-up-a-new-computer).
 - To diagnose a missing or stale rule, see [Troubleshooting](#troubleshooting).
 
@@ -57,8 +59,8 @@ The global `AGENTS.md` contains reusable rules, including:
   than repeated speculation, Obsidian console snippets, targeted log markers,
   a crash-safe flight recorder for intermittent failures, and an out-of-process
   watchdog with debugger stack capture for freezes.
-- Windows command-line safety and Git line-ending handling.
-- Verifying runtime-loaded build artifacts.
+- Shell selection and command-line safety across AI hosts, and Git line-ending handling.
+- Verifying runtime-loaded build artifacts in the repository root, without searching for a runtime vault.
 - Delta thread/worktree identity and Obsidian plugin worktree workflows.
 - Obsidian pop-out window rules: no bare main-window globals, per-window listeners and timers, and no focus stealing on blur.
 - Conditional Node/npm and Python repository rules.
@@ -76,6 +78,8 @@ that the current repository uses the relevant technology or workflow.
 ├── .gitattributes              # Defines repository line-ending policy
 ├── .gitignore                  # Keeps OS and editor junk out of Git
 ├── README.md                   # This documentation
+├── docs/
+│   └── kilo-config.md          # Kilo shell and permission setup for a new machine
 ├── dot_config/
 │   ├── delta/
 │   │   └── AGENTS.md.tmpl      # Delta Personal AGENTS.md (includes the Kilo source)
@@ -156,6 +160,25 @@ To check that nothing is pending, run `chezmoi status`; it prints nothing when
 the installed files match the source. Start a new Kilo, Delta, Gemini, or Copilot session
 to load updated rules; an existing session keeps the instructions it already
 loaded.
+
+### Adding another AI harness
+
+The canonical rule text is `dot_config/kilo/AGENTS.md`. Each harness needs only a
+small chezmoi template that includes it. To add one:
+
+1. Find the personal-instructions path the harness reads at startup.
+2. Create a template at the matching source path, for example
+   `dot_<harness>/<path>.tmpl` or `dot_config/<harness>/<path>.tmpl`.
+3. Make the template one line:
+   `{{ include "dot_config/kilo/AGENTS.md" }}`
+4. Run `chezmoi apply` and confirm the rendered file contains a distinctive
+   phrase from the canonical source.
+5. Start a new session in that harness and ask it to show the rules it loaded.
+
+Add the new path to the copy map above and to the "Rule: Updating these global
+rules" section in `dot_config/kilo/AGENTS.md`, so future sessions know it
+exists. A harness that cannot read a personal instructions file is out of scope;
+do not copy the rules into project repositories to work around it.
 
 ---
 ## Day-to-day use
@@ -419,6 +442,24 @@ machines. Unmanaged files can coexist in `~/.config/kilo/`.
 
 ---
 
+## Kilo shell and permissions
+
+Kilo's `~/.config/kilo/kilo.jsonc` is deliberately unmanaged because it contains
+machine-specific `external_directory` paths. The reproducible setup is recorded
+in [`docs/kilo-config.md`](docs/kilo-config.md). In short:
+
+- Top-level `shell` is `C:\\Program Files\\Git\\bin\\bash.exe`, so Kilo's bash
+  tool runs Git Bash directly and no PowerShell launcher appears.
+- PowerShell cmdlets, `powershell *`, `pwsh *`, and broad auto-approve entries
+  such as `? *` and `find *` are removed.
+- Explicit `deny` rules block PowerShell if it is attempted anyway.
+
+On a new machine, merge the snippet in `docs/kilo-config.md` into
+`kilo.jsonc`, start a new session, and run
+`printf 'shell=%s\n' "$BASH_VERSION"`. It must print a bash version.
+
+---
+
 ## Shared scripts and hooks
 
 This repository distributes helper scripts under `dot_config/kilo/`. They are
@@ -587,6 +628,10 @@ Install Kilo and chezmoi in either order. Kilo configuration files that are not
 managed by this repository, such as an existing `kilo.jsonc`, can coexist with
 the managed global `AGENTS.md`.
 
+For the Git Bash `shell` setting and the PowerShell deny rules, merge the
+snippet from [`docs/kilo-config.md`](docs/kilo-config.md) into
+`~/.config/kilo/kilo.jsonc`. That file is not managed by chezmoi.
+
 ### Windows
 
 Open PowerShell:
@@ -664,6 +709,21 @@ Start a new Kilo session after setup.
 ---
 
 ## Troubleshooting
+
+### Kilo still uses PowerShell
+
+Confirm `~/.config/kilo/kilo.jsonc` has the top-level `shell` setting from
+[`docs/kilo-config.md`](docs/kilo-config.md), then start a new session. An
+existing session keeps the shell it was launched with.
+
+Inside the new session, run:
+
+```sh
+printf 'shell=%s\n' "$BASH_VERSION"
+```
+
+It must print a bash version. If it does not, confirm
+`C:\Program Files\Git\bin\bash.exe` exists and restart Kilo.
 
 ### A global-rule change is not taking effect
 
