@@ -301,8 +301,13 @@ every Git command. A hook pass does not replace literal-message inspection.
   Never hard-wrap for display width; visual terminal wrapping is not a newline.
 - Never collapse distinct bullets/paragraphs to evade a rejection, omit material
   changes or confuse tracked-file CRLF/LF policy with message structure.
-- Always prepare structured messages in POSIX Bash with a quoted heredoc and
-  commit via git commit -F; never PowerShell redirection or multiline git commit -m.
+- Use `node ~/.config/kilo/tools/commit.cjs` with separate `--subject`,
+  `--overview` and `--bullet` arguments. Run it without `--commit` first and
+  inspect the staged diff, identities and complete message; then repeat with
+  `--commit`. It prepares a quoted Bash heredoc, validates the message and
+  runs git commit -F with hooks enabled. If the helper is unavailable, use the
+  quoted Bash heredoc and git commit -F below; never PowerShell redirection or
+  multiline git commit -m.
 
 ```bash
 messageFile=".git/kilo-commit-message.txt"

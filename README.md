@@ -471,12 +471,36 @@ installed into `~/.config/kilo/` by `chezmoi apply`.
 | `hooks/commit-msg.ps1` | PowerShell entry point for the same attribution and formatting checks | Windows; PowerShell Core on macOS/Linux, plus Node.js |
 | `hooks/ai-attribution.cjs` | Shared attribution policy for local hooks and GitHub PR checks | Node.js |
 | `hooks/pre-push` | Checks introduced commit messages, then preserves the Git LFS hook | POSIX shell, Node.js and Git LFS |
+| `tools/commit.cjs` | Previews and commits staged changes with a validated structured message | Node.js and Bash |
 | `tools/obsidian-relink.mjs` | Repoints an Obsidian vault plugin path to a selected checkout | Node.js on Windows, macOS, and Linux |
 
 To add a shared helper, add it under `dot_config/kilo/tools/`, test it, then
 commit and push it. Do not place one-off copies in `~/.local/bin/`,
 `C:\scripts\`, or another unmanaged location if the tool is intended to be
 available consistently on multiple machines.
+
+### Commit staged changes
+
+The commit helper accepts single-line message components as arguments, prepares
+the message using a quoted Bash heredoc, and checks it with the shared
+commit-message hook. It does not stage files. First preview and inspect the
+staged diff, author, committer, and exact message:
+
+```sh
+node ~/.config/kilo/tools/commit.cjs --subject "Improve folder navigation" --overview "Make the folder action easier to find."
+```
+
+Add a separate `--bullet "..."` for each material change; at least two are
+required when multiple files are staged. After reviewing the preview, repeat
+the same command with `--commit` to commit the staged changes. The helper
+validates again and uses `git commit -F`; normal Git hooks remain enabled.
+Review the staged diff again if it changes between preview and commit.
+
+Run its integration tests from this checkout:
+
+```sh
+node --test tests/commit.test.cjs
+```
 
 ### Relink an Obsidian plugin
 
