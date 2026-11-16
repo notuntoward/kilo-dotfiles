@@ -137,7 +137,7 @@ dotfiles repository), follow exactly this procedure:
 5. Verify: `chezmoi diff` prints nothing, and a distinctive phrase from the
    change is present in all four installed files.
 6. Commit the source repository change following the "Git commit messages" rule
-   (message file and `git commit -F`; no hook bypass), then `git push`. Report
+   (use the commit helper; no hook bypass), then `git push`. Report
    the commit hash and that a new Kilo/Delta/Gemini/Copilot session is needed to load
    the updated rules.
 7. Do not touch the project repository's own `AGENTS.md` as part of this; move
@@ -302,34 +302,14 @@ every Git command. A hook pass does not replace literal-message inspection.
 - Never collapse distinct bullets/paragraphs to evade a rejection, omit material
   changes or confuse tracked-file CRLF/LF policy with message structure.
 - Use `node ~/.config/kilo/tools/commit.cjs` with separate `--subject`,
-  `--overview` and `--bullet` arguments. Run it without `--commit` first and
-  inspect the staged diff, identities and complete message; then repeat with
-  `--commit`. It prepares a quoted Bash heredoc, validates the message and
-  runs git commit -F with hooks enabled. If the helper is unavailable, use the
-  quoted Bash heredoc and git commit -F below; never PowerShell redirection or
-  multiline git commit -m.
-
-```bash
-messageFile=".git/kilo-commit-message.txt"
-cat > "$messageFile" <<'EOF'
-Improve insertion feedback
-
-Show the safe insertion target without moving the note cursor.
-
-- Add the unfocused target marker
-- Document placement and clipboard fallback
-EOF
-cat "$messageFile"
-git commit -F "$messageFile"
-rm "$messageFile"
-```
+  `--overview` and `--bullet` arguments and `--commit` for every commit. Never
+  invoke `git commit` directly or use a fallback. Do not inspect the helper's
+  output; check only its exit status. If it fails or is unavailable, stop and
+  report failure.
 
 Before commit, inspect the exact message line by line, staged scope and identities,
 and confirm the command contains no hook/signing bypass. Never use --no-verify,
-environment bypasses, direct hook bypasses or weaken hooks. If rejected, fix only
-the named paragraph/bullet as one physical line while preserving all structural
-boundaries; inspect and retry normally. Never rewrite code for a message error.
-Delete the temporary message file after a successful commit.
+environment bypasses, direct hook bypasses or weaken hooks.
 
 ## Rule: Shell selection and command-line safety
 
