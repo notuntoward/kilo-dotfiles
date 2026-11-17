@@ -24,7 +24,7 @@ Leave existing vault links and settings untouched. Ask for access only if the
 required original checkout or runtime target is actually unavailable.
 
 These rules apply to agent sessions that load this file through Kilo, Delta,
-Gemini, or Copilot. Project-level `AGENTS.md` files are loaded after this file and may
+Gemini, Copilot, or OpenCode. Project-level `AGENTS.md` files are loaded after this file and may
 supplement or override these rules.
 
 ## Rule: Conditional rules
@@ -96,11 +96,13 @@ required for correctness.
 ## Rule: Updating these global rules
 
 This file is managed by the `notuntoward/kilo-dotfiles` repository through
-chezmoi. It is the canonical source for Kilo, Delta, Gemini, and Copilot global rules;
+chezmoi. It is the canonical source for Kilo, Delta, Gemini, Copilot, and OpenCode global rules;
 chezmoi templates install generated copies at `~/.config/delta/AGENTS.md`,
-`~/.gemini/config/AGENTS.md`, and `~/.copilot/copilot-instructions.md`.
+`~/.gemini/config/AGENTS.md`, `~/.copilot/copilot-instructions.md`, and
+`~/.config/opencode/AGENTS.md`.
 Delta reads its copy as Personal AGENTS.md. Copilot CLI and Copilot sessions
-in VS Code discover their copy as personal, always-on instructions. Keep
+in VS Code discover their copy as personal, always-on instructions. OpenCode
+CLI and desktop discover their global AGENTS.md. Keep
 the generated copies sourced from this file. When the user asks to add, remove,
 or revise a global rule, explain that the canonical source and user instructions
 are in that repository's `README.md`:
@@ -130,15 +132,16 @@ dotfiles repository), follow exactly this procedure:
    Change templates or documentation only when the user requests integration changes. Never write
    to the installed files `~/.config/kilo/AGENTS.md`,
    `~/.config/delta/AGENTS.md`, `~/.gemini/config/AGENTS.md`, or
-   `~/.copilot/copilot-instructions.md`. Templates only `include` the Kilo source.
+   `~/.copilot/copilot-instructions.md`, or `~/.config/opencode/AGENTS.md`.
+   Templates only `include` the Kilo source.
 3. Preserve the file's existing line endings (check before editing).
-4. Run `chezmoi apply` with no path, which renders all four installed copies.
+4. Run `chezmoi apply` with no path, which renders all five installed copies.
    Applying only the Kilo path leaves the other copies stale.
 5. Verify: `chezmoi diff` prints nothing, and a distinctive phrase from the
-   change is present in all four installed files.
+   change is present in all five installed files.
 6. Commit the source repository change following the "Git commit messages" rule
    (use the commit helper; no hook bypass), then `git push`. Report
-   the commit hash and that a new Kilo/Delta/Gemini/Copilot session is needed to load
+   the commit hash and that a new Kilo/Delta/Gemini/Copilot/OpenCode session is needed to load
    the updated rules.
 7. Do not touch the project repository's own `AGENTS.md` as part of this; move
    or delete project-level copies only when the user asks.

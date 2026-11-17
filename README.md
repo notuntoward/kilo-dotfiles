@@ -4,8 +4,9 @@ This repository is the source of truth for global agent rules and shared Kilo
 helper scripts. chezmoi installs the canonical rules at
 `~/.config/kilo/AGENTS.md` and renders copies for Delta at
 `~/.config/delta/AGENTS.md`, Antigravity (Gemini) at
-`~/.gemini/config/AGENTS.md`, and Copilot at
-`~/.copilot/copilot-instructions.md`. See [the copy map](#how-the-kilo-delta-and-gemini-copies-are-connected) for details.
+`~/.gemini/config/AGENTS.md`, Copilot at
+`~/.copilot/copilot-instructions.md`, and OpenCode at
+`~/.config/opencode/AGENTS.md`. See [the copy map](#how-the-agent-rule-copies-are-connected) for details.
 
 - To change a global rule, see [Change a global agent rule](#change-a-global-agent-rule).
 - To pull a change made on another machine, see [Pull changes from another machine](#pull-changes-from-another-machine).
@@ -16,7 +17,7 @@ helper scripts. chezmoi installs the canonical rules at
 
 For a persistent change, edit the canonical source file in this repository, run
 `chezmoi apply`, then commit and push. Do not directly edit installed Kilo,
-Delta, or Gemini copies unless you intend a temporary local change.
+Delta, Gemini, Copilot, or OpenCode copies unless you intend a temporary local change.
 
 ---
 ## Where Kilo reads rules
@@ -83,6 +84,8 @@ that the current repository uses the relevant technology or workflow.
 ├── dot_config/
 │   ├── delta/
 │   │   └── AGENTS.md.tmpl      # Delta Personal AGENTS.md (includes the Kilo source)
+│   ├── opencode/
+│   │   └── AGENTS.md.tmpl      # OpenCode global rules (includes the Kilo source)
 │   └── kilo/
 │       ├── AGENTS.md           # Global Kilo rules (source of truth)
 │       ├── hooks/
@@ -117,9 +120,9 @@ computer.
 
 ---
 
-## How the Kilo, Delta, and Gemini copies are connected
+## How the agent rule copies are connected
 
-One tracked rules file feeds four installed files, so the rules are written
+One tracked rules file feeds five installed files, so the rules are written
 once:
 
 ```text
@@ -131,14 +134,16 @@ dot_gemini/config/AGENTS.md.tmpl           -->   ~/.gemini/config/AGENTS.md     
   (one line: {{ include "dot_config/kilo/AGENTS.md" }})
 dot_copilot/copilot-instructions.md.tmpl   -->   ~/.copilot/copilot-instructions.md  Copilot CLI and VS Code Copilot sessions
   (one line: {{ include "dot_config/kilo/AGENTS.md" }})
+dot_config/opencode/AGENTS.md.tmpl         -->   ~/.config/opencode/AGENTS.md     OpenCode CLI and desktop
+  (one line: {{ include "dot_config/kilo/AGENTS.md" }})
 ```
 
-- The Delta, Gemini, and Copilot files are templates. Each includes the Kilo source, so
+- The Delta, Gemini, Copilot, and OpenCode files are templates. Each includes the Kilo source, so
   chezmoi renders the same rules into the tool-specific Personal AGENTS.md path.
 - The installed files are rendered copies, not symlinks or live references.
   Editing the Kilo source does not update them until `chezmoi apply` runs.
 - Always apply the whole repository. `chezmoi apply` with no path updates all
-  four rule files (and the other managed files) in one step. Applying only the
+  five rule files (and the other managed files) in one step. Applying only the
   Kilo path leaves the other copies stale.
 
 ### Update all agent rule copies with one command
@@ -157,7 +162,7 @@ chezmoi update
 ```
 
 To check that nothing is pending, run `chezmoi status`; it prints nothing when
-the installed files match the source. Start a new Kilo, Delta, Gemini, or Copilot session
+the installed files match the source. Start a new Kilo, Delta, Gemini, Copilot, or OpenCode session
 to load updated rules; an existing session keeps the instructions it already
 loaded.
 
@@ -189,9 +194,10 @@ There are two locations to keep distinct:
   checkout of `https://github.com/notuntoward/kilo-dotfiles.git`. This is the
   authoritative version you edit and commit.
 - **Installed copies:** `~/.config/kilo/AGENTS.md`, `~/.config/delta/AGENTS.md`,
-  `~/.gemini/config/AGENTS.md`, and `~/.copilot/copilot-instructions.md`.
-  Copilot discovers its personal instructions automatically. Kilo and Delta read their copy when a new
-  session or thread starts; Gemini reads its rendered copy.
+  `~/.gemini/config/AGENTS.md`, `~/.copilot/copilot-instructions.md`, and
+  `~/.config/opencode/AGENTS.md`.
+  Copilot and OpenCode discover their personal instructions automatically. Kilo and
+  Delta read their copy when a new session or thread starts; Gemini reads its rendered copy.
 
 The normal pattern is:
 
@@ -280,7 +286,7 @@ What they do:
 
 - `git diff -- dot_config/kilo/AGENTS.md` shows the source change you made.
 - `chezmoi apply` updates the installed Kilo file and renders the Delta,
-  Gemini, and Copilot copies from the canonical source.
+  Gemini, Copilot, and OpenCode copies from the canonical source.
 - `chezmoi diff` should produce no output when all installed copies match the
   source state.
 
@@ -298,6 +304,9 @@ If `COPILOT_HOME` is set to another directory, ensure that directory receives
 the generated file instead; this template targets the default home.
 See [Copilot instruction discovery](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions)
 and [VS Code custom instructions](https://code.visualstudio.com/docs/copilot/customization/custom-instructions).
+
+Start a new OpenCode CLI or desktop session and verify its global instructions.
+See [OpenCode instructions](https://opencode.ai/docs/instructions/).
 
 These local copies do not configure GitHub-hosted agents or AI products that
 do not read these locations. On other machines, run `chezmoi update` to pull
@@ -607,6 +616,8 @@ paths should include the corresponding file below:
 Kilo:  ~/.config/kilo/AGENTS.md
 Delta: ~/.config/delta/AGENTS.md
 Gemini: ~/.gemini/config/AGENTS.md
+Copilot: ~/.copilot/copilot-instructions.md
+OpenCode: ~/.config/opencode/AGENTS.md
 ```
 
 On Windows, these paths are under your user profile. Delta may use
