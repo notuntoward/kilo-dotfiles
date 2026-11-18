@@ -339,11 +339,12 @@ the same out-of-workspace file read repeatedly.
 Never reload or edit extensions, hooks or permission policy to bypass an approval
 prompt. Use an existing checkout-scoped/direct-shell tool, or stop and state the
 access limitation. Never repeatedly ask for approval of the same operation.
-Never use workspace-scoped file-view or file-edit tools on sibling
-repositories, home-directory files, caches, logs or other out-of-workspace
-paths. For sibling-repository mutations, use the direct POSIX-shell tool or a
-dedicated extension that is scoped to the authorized checkout; do not route
-those edits through an approval-producing workspace tool.
+Never use workspace-scoped file-view, file-search, glob, symbol or edit tools on
+sibling repositories, home-directory files, caches, logs or other
+out-of-workspace paths. This includes sending a sibling absolute path to a tool
+such as view, rg or glob. For every sibling-repository read, search or mutation,
+use the direct POSIX-shell tool or a dedicated extension scoped to that checkout;
+do not route the operation through an approval-producing workspace tool.
 PowerShell backticks corrupt text, old redirection corrupts UTF-8 and old hosts
 lack POSIX heredocs/chaining. Keep file edits in dedicated tools.
 If Git Bash is missing, stop and ask for Git for Windows; use another POSIX shell
