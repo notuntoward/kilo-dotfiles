@@ -336,6 +336,11 @@ creates repeated approval prompts. Read such paths through the direct
 POSIX-shell tool when available; otherwise use the dedicated session/file-log
 tool or stop and state the access limitation. Do not ask the user to approve
 the same out-of-workspace file read repeatedly.
+Never use workspace-scoped file-view or file-edit tools on sibling
+repositories, home-directory files, caches, logs or other out-of-workspace
+paths. For sibling-repository mutations, use the direct POSIX-shell tool or a
+dedicated extension that is scoped to the authorized checkout; do not route
+those edits through an approval-producing workspace tool.
 PowerShell backticks corrupt text, old redirection corrupts UTF-8 and old hosts
 lack POSIX heredocs/chaining. Keep file edits in dedicated tools.
 If Git Bash is missing, stop and ask for Git for Windows; use another POSIX shell
