@@ -317,17 +317,19 @@ environment bypasses, direct hook bypasses or weaken hooks.
 ## Rule: Shell selection and command-line safety
 
 Detect once per session with printf 'shell=%s\n' "$BASH_VERSION". In Bash, use
-POSIX commands directly, not bash -c wrappers. If the host is PowerShell, use
-the Git Bash launcher below and state the fallback once; do not repeatedly probe
-or debate it. Never use bare bash on Windows (it may resolve to WSL).
-
-```text
-& "C:\Program Files\Git\bin\bash.exe" -lc '<posix command>'
-```
+POSIX commands directly, not bash -c wrappers. Never use bare bash on Windows
+(it may resolve to WSL).
 
 Never author/run PowerShell cmdlets, scripts, .ps1, powershell/pwsh or
 -EncodedCommand, on ANY platform. Use file tools, Node or POSIX commands
 (ls/cat/printf/grep/sed/awk/find/test/rm, $VAR, $? and &&/||).
+Do not invoke PowerShell indirectly: never use a PowerShell-backed terminal
+runner, API, extension, task or shell wrapper to launch Git Bash or any other
+POSIX shell. On Windows, run shell-dependent work only through a tool that
+starts Git Bash (or another explicitly verified POSIX shell) directly. If the
+host exposes only a PowerShell-backed command runner, stop the shell-dependent
+portion, state that limitation, and continue with direct file/API tools where
+possible; do not request approval for a PowerShell-wrapped command.
 PowerShell backticks corrupt text, old redirection corrupts UTF-8 and old hosts
 lack POSIX heredocs/chaining. Keep file edits in dedicated tools.
 If Git Bash is missing, stop and ask for Git for Windows; use another POSIX shell
