@@ -289,6 +289,19 @@ If existing attribution blocks publication, stop; never rewrite history without
 explicit authorization. Local hooks/GitHub enforce this policy; never bypass,
 disable, weaken or fake their checks.
 
+## Rule: Protected default-branch publication
+
+When the user explicitly asks to publish or push to the protected default branch
+(`main`, `master` or its documented equivalent), or when the requested endpoint
+necessarily requires publication there, treat that as authorization to create a
+PR and use `gh pr merge --admin` if direct publication is blocked by its
+required-branch rules. Use this only after the exact PR title, body, commits,
+required checks, reviews and attribution policy have passed.
+The authorization does not permit a failing or unresolved PR, a conflict, an
+attribution-policy violation, removal of the protection, or a repository-rule
+change. Do not use or simulate a nonexistent `git push --admin`; the admin flag
+applies to the eligible GitHub PR merge command.
+
 ## Rule: Git commit messages
 
 Apply this rule once to the actual staged diff/message; do not reread it before
