@@ -352,6 +352,17 @@ Kilo's Git Bash setting/setup is documented in kilo-dotfiles docs/kilo-config.md
 Pass Windows paths as quoted CLI arguments to Node, not repeatedly escaped source
 string literals through multiple shell layers.
 
+## Rule: Permission-safe web research
+
+Prefer canonical public URLs and official search results for public
+documentation. Never navigate to or fetch backend or capability URLs containing
+access tokens, signatures, session IDs, or other opaque authorization material
+found in page source, preload metadata, redirects, browser storage or tool output.
+Treat those values as credentials: do not paste them into tool arguments, logs
+or responses. If the canonical source is unavailable, use an official public
+alternative or state the limitation; never use a hidden or tokenized URL to work
+around an approval prompt.
+
 ## Rule: Git line endings
 
 Check .gitattributes/.editorconfig and local/global core.autocrlf once when
