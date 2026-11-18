@@ -432,6 +432,18 @@ the user explicitly supplies. Relinking requires explicit authorization, the
 obsidian-relink.mjs helper with that explicit path, and preservation of the
 original target/settings; explain the changed settings location.
 
+## Rule: Node build and test scripts
+
+Apply this rule only in repositories that use npm and package their validation through scripts.
+
+- Define `test` as a deterministic, non-watch unit/component test command (for example `vitest run`). Keep interactive/watch, coverage, UI and browser suites in separate named scripts.
+- Define `typecheck` with the repository's existing compiler command.
+- Define `check` as lint (when configured) plus typecheck, without bundling.
+- For projects that produce a runtime bundle, define `bundle` as the production artifact command and define `build` as `npm run check && npm test && npm run bundle`.
+- For source-only libraries with no runtime bundle, define `build` as `npm run check`; `check` already includes the library's required tests.
+- Keep browser/E2E suites separate (for example `test:browser`) and report them as a separate gate. Do not silently fold browser dependencies into every local build.
+- When final-reporting validation, report build, unit-test count, and browser-suite status independently. Never report only `build passed` when the package declares a separate test suite.
+
 ## Rule: Node dependency changes
 
 Apply this rule only when the repository uses npm and its CI uses `npm ci`.
