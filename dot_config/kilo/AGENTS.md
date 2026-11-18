@@ -336,6 +336,9 @@ creates repeated approval prompts. Read such paths through the direct
 POSIX-shell tool when available; otherwise use the dedicated session/file-log
 tool or stop and state the access limitation. Do not ask the user to approve
 the same out-of-workspace file read repeatedly.
+Never reload or edit extensions, hooks or permission policy to bypass an approval
+prompt. Use an existing checkout-scoped/direct-shell tool, or stop and state the
+access limitation. Never repeatedly ask for approval of the same operation.
 Never use workspace-scoped file-view or file-edit tools on sibling
 repositories, home-directory files, caches, logs or other out-of-workspace
 paths. For sibling-repository mutations, use the direct POSIX-shell tool or a
@@ -441,6 +444,8 @@ Apply this rule only in repositories that use npm and package their validation t
 - Define `check` as lint (when configured) plus typecheck, without bundling.
 - For projects that produce a runtime bundle, define `bundle` as the production artifact command and define `build` as `npm run check && npm test && npm run bundle`.
 - For source-only libraries with no runtime bundle, define `build` as `npm run check`; `check` already includes the library's required tests.
+- If a package has only integration/E2E tests that require an external application or runtime, keep that command as `test:integration` or `test:browser` and report it separately. In that case `build` is `npm run check && npm run bundle`; do not pretend the integration gate ran.
+- Add a build-alias-only change as `build = npm run check` for source-only libraries, never a no-op or hidden fallback.
 - Keep browser/E2E suites separate (for example `test:browser`) and report them as a separate gate. Do not silently fold browser dependencies into every local build.
 - When final-reporting validation, report build, unit-test count, and browser-suite status independently. Never report only `build passed` when the package declares a separate test suite.
 
