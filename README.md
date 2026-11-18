@@ -4,17 +4,20 @@ This repository is the source of truth for global agent rules and shared Kilo
 helper scripts. chezmoi installs the canonical rules at
 `~/.config/kilo/AGENTS.md` and renders copies for Delta at
 `~/.config/delta/AGENTS.md`, Antigravity (Gemini) at
-`~/.gemini/config/AGENTS.md`, and Copilot at
-`~/.copilot/copilot-instructions.md`. See [the copy map](#how-the-kilo-delta-and-gemini-copies-are-connected) for details.
+`~/.gemini/config/AGENTS.md`, Copilot at
+`~/.copilot/copilot-instructions.md`, and OpenCode at
+`~/.config/opencode/AGENTS.md`. See [the copy map](#how-the-agent-rule-copies-are-connected) for details.
 
 - To change a global rule, see [Change a global agent rule](#change-a-global-agent-rule).
 - To pull a change made on another machine, see [Pull changes from another machine](#pull-changes-from-another-machine).
+- To add another AI harness, see [Adding another AI harness](#adding-another-ai-harness).
+- To reproduce Kilo's shell and permission setup, see [Kilo shell and permissions](#kilo-shell-and-permissions).
 - To set up a new computer, see [Set up a new computer](#set-up-a-new-computer).
 - To diagnose a missing or stale rule, see [Troubleshooting](#troubleshooting).
 
 For a persistent change, edit the canonical source file in this repository, run
 `chezmoi apply`, then commit and push. Do not directly edit installed Kilo,
-Delta, or Gemini copies unless you intend a temporary local change.
+Delta, Gemini, Copilot, or OpenCode copies unless you intend a temporary local change.
 
 ---
 ## Where Kilo reads rules
@@ -57,8 +60,8 @@ The global `AGENTS.md` contains reusable rules, including:
   than repeated speculation, Obsidian console snippets, targeted log markers,
   a crash-safe flight recorder for intermittent failures, and an out-of-process
   watchdog with debugger stack capture for freezes.
-- Windows command-line safety and Git line-ending handling.
-- Verifying runtime-loaded build artifacts.
+- Shell selection and command-line safety across AI hosts, and Git line-ending handling.
+- Verifying runtime-loaded build artifacts in the repository root, without searching for a runtime vault.
 - Delta thread/worktree identity and Obsidian plugin worktree workflows.
 - Obsidian pop-out window rules: no bare main-window globals, per-window listeners and timers, and no focus stealing on blur.
 - Conditional Node/npm and Python repository rules.
@@ -76,16 +79,20 @@ that the current repository uses the relevant technology or workflow.
 ├── .gitattributes              # Defines repository line-ending policy
 ├── .gitignore                  # Keeps OS and editor junk out of Git
 ├── README.md                   # This documentation
+├── docs/
+│   └── kilo-config.md          # Kilo shell and permission setup for a new machine
 ├── dot_config/
 │   ├── delta/
 │   │   └── AGENTS.md.tmpl      # Delta Personal AGENTS.md (includes the Kilo source)
+│   ├── opencode/
+│   │   └── AGENTS.md.tmpl      # OpenCode global rules (includes the Kilo source)
 │   └── kilo/
 │       ├── AGENTS.md           # Global Kilo rules (source of truth)
 │       ├── hooks/
 │       │   ├── commit-msg      # Git hook entry point
 │       │   └── commit-msg.ps1  # PowerShell hook implementation
 │       └── tools/
-│           └── obsidian-relink.ps1  # Obsidian plugin relinking helper
+│           └── obsidian-relink.mjs  # Cross-platform Obsidian plugin relinking helper
 ├── dot_copilot/
 │   └── copilot-instructions.md.tmpl  # Copilot personal rules (includes the Kilo source)
 └── dot_gemini/
@@ -113,9 +120,9 @@ computer.
 
 ---
 
-## How the Kilo, Delta, and Gemini copies are connected
+## How the agent rule copies are connected
 
-One tracked rules file feeds four installed files, so the rules are written
+One tracked rules file feeds five installed files, so the rules are written
 once:
 
 ```text
@@ -127,14 +134,16 @@ dot_gemini/config/AGENTS.md.tmpl           -->   ~/.gemini/config/AGENTS.md     
   (one line: {{ include "dot_config/kilo/AGENTS.md" }})
 dot_copilot/copilot-instructions.md.tmpl   -->   ~/.copilot/copilot-instructions.md  Copilot CLI and VS Code Copilot sessions
   (one line: {{ include "dot_config/kilo/AGENTS.md" }})
+dot_config/opencode/AGENTS.md.tmpl         -->   ~/.config/opencode/AGENTS.md     OpenCode CLI and desktop
+  (one line: {{ include "dot_config/kilo/AGENTS.md" }})
 ```
 
-- The Delta, Gemini, and Copilot files are templates. Each includes the Kilo source, so
+- The Delta, Gemini, Copilot, and OpenCode files are templates. Each includes the Kilo source, so
   chezmoi renders the same rules into the tool-specific Personal AGENTS.md path.
 - The installed files are rendered copies, not symlinks or live references.
   Editing the Kilo source does not update them until `chezmoi apply` runs.
 - Always apply the whole repository. `chezmoi apply` with no path updates all
-  four rule files (and the other managed files) in one step. Applying only the
+  five rule files (and the other managed files) in one step. Applying only the
   Kilo path leaves the other copies stale.
 
 ### Update all agent rule copies with one command
@@ -153,9 +162,45 @@ chezmoi update
 ```
 
 To check that nothing is pending, run `chezmoi status`; it prints nothing when
-the installed files match the source. Start a new Kilo, Delta, Gemini, or Copilot session
+the installed files match the source. Start a new Kilo, Delta, Gemini, Copilot, or OpenCode session
 to load updated rules; an existing session keeps the instructions it already
 loaded.
+
+### Shared skills (independent of Copilot)
+
+Shared skill sources live under `dot_agents/skills/` and chezmoi installs them
+under `~/.agents/skills/`. These are ordinary Markdown files, outside any
+Copilot-specific directory; removing Copilot does not remove this managed setup.
+Agents without native support for this skill location can read the files
+directly when directed by a project's `AGENTS.md`.
+
+| Skill | Source | Installed location |
+|---|---|---|
+| Safe Perplexity userscript debugging | [SKILL.md](dot_agents/skills/perplexity-debugging/SKILL.md) | `~/.agents/skills/perplexity-debugging/SKILL.md` |
+
+Edit the source, run `chezmoi apply`, and verify `chezmoi diff` is empty.
+The Perplexity skill uses the harness in the `obsidian-perplexity-saver` checkout;
+it is not a standalone copy of that harness. Its project-level `AGENTS.md`
+provides the escalation trigger and shared-skill path.
+
+### Adding another AI harness
+
+The canonical rule text is `dot_config/kilo/AGENTS.md`. Each harness needs only a
+small chezmoi template that includes it. To add one:
+
+1. Find the personal-instructions path the harness reads at startup.
+2. Create a template at the matching source path, for example
+   `dot_<harness>/<path>.tmpl` or `dot_config/<harness>/<path>.tmpl`.
+3. Make the template one line:
+   `{{ include "dot_config/kilo/AGENTS.md" }}`
+4. Run `chezmoi apply` and confirm the rendered file contains a distinctive
+   phrase from the canonical source.
+5. Start a new session in that harness and ask it to show the rules it loaded.
+
+Add the new path to the copy map above and to the "Rule: Updating these global
+rules" section in `dot_config/kilo/AGENTS.md`, so future sessions know it
+exists. A harness that cannot read a personal instructions file is out of scope;
+do not copy the rules into project repositories to work around it.
 
 ---
 ## Day-to-day use
@@ -166,9 +211,10 @@ There are two locations to keep distinct:
   checkout of `https://github.com/notuntoward/kilo-dotfiles.git`. This is the
   authoritative version you edit and commit.
 - **Installed copies:** `~/.config/kilo/AGENTS.md`, `~/.config/delta/AGENTS.md`,
-  `~/.gemini/config/AGENTS.md`, and `~/.copilot/copilot-instructions.md`.
-  Copilot discovers its personal instructions automatically. Kilo and Delta read their copy when a new
-  session or thread starts; Gemini reads its rendered copy.
+  `~/.gemini/config/AGENTS.md`, `~/.copilot/copilot-instructions.md`, and
+  `~/.config/opencode/AGENTS.md`.
+  Copilot and OpenCode discover their personal instructions automatically. Kilo and
+  Delta read their copy when a new session or thread starts; Gemini reads its rendered copy.
 
 The normal pattern is:
 
@@ -257,7 +303,7 @@ What they do:
 
 - `git diff -- dot_config/kilo/AGENTS.md` shows the source change you made.
 - `chezmoi apply` updates the installed Kilo file and renders the Delta,
-  Gemini, and Copilot copies from the canonical source.
+  Gemini, Copilot, and OpenCode copies from the canonical source.
 - `chezmoi diff` should produce no output when all installed copies match the
   source state.
 
@@ -275,6 +321,9 @@ If `COPILOT_HOME` is set to another directory, ensure that directory receives
 the generated file instead; this template targets the default home.
 See [Copilot instruction discovery](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions)
 and [VS Code custom instructions](https://code.visualstudio.com/docs/copilot/customization/custom-instructions).
+
+Start a new OpenCode CLI or desktop session and verify its global instructions.
+See [OpenCode instructions](https://opencode.ai/docs/instructions/).
 
 These local copies do not configure GitHub-hosted agents or AI products that
 do not read these locations. On other machines, run `chezmoi update` to pull
@@ -419,6 +468,24 @@ machines. Unmanaged files can coexist in `~/.config/kilo/`.
 
 ---
 
+## Kilo shell and permissions
+
+Kilo's `~/.config/kilo/kilo.jsonc` is deliberately unmanaged because it contains
+machine-specific `external_directory` paths. The reproducible setup is recorded
+in [`docs/kilo-config.md`](docs/kilo-config.md). In short:
+
+- Top-level `shell` is `C:\\Program Files\\Git\\bin\\bash.exe`, so Kilo's bash
+  tool runs Git Bash directly and no PowerShell launcher appears.
+- PowerShell cmdlets, `powershell *`, `pwsh *`, and broad auto-approve entries
+  such as `? *` and `find *` are removed.
+- Explicit `deny` rules block PowerShell if it is attempted anyway.
+
+On a new machine, merge the snippet in `docs/kilo-config.md` into
+`kilo.jsonc`, start a new session, and run
+`printf 'shell=%s\n' "$BASH_VERSION"`. It must print a bash version.
+
+---
+
 ## Shared scripts and hooks
 
 This repository distributes helper scripts under `dot_config/kilo/`. They are
@@ -430,12 +497,49 @@ installed into `~/.config/kilo/` by `chezmoi apply`.
 | `hooks/commit-msg.ps1` | PowerShell entry point for the same attribution and formatting checks | Windows; PowerShell Core on macOS/Linux, plus Node.js |
 | `hooks/ai-attribution.cjs` | Shared attribution policy for local hooks and GitHub PR checks | Node.js |
 | `hooks/pre-push` | Checks introduced commit messages, then preserves the Git LFS hook | POSIX shell, Node.js and Git LFS |
-| `tools/obsidian-relink.ps1` | Repoints an Obsidian vault plugin path to a selected checkout | Windows primary; manual symlink workflow elsewhere |
+| `tools/commit.cjs` | Previews and commits staged changes with a validated structured message | Node.js and Bash |
+| `tools/obsidian-relink.mjs` | Repoints an Obsidian vault plugin path to a selected checkout | Node.js on Windows, macOS, and Linux |
 
 To add a shared helper, add it under `dot_config/kilo/tools/`, test it, then
 commit and push it. Do not place one-off copies in `~/.local/bin/`,
 `C:\scripts\`, or another unmanaged location if the tool is intended to be
 available consistently on multiple machines.
+
+### Commit staged changes
+
+The commit helper accepts single-line message components as arguments, prepares
+the message using a quoted Bash heredoc, and checks it with the shared
+commit-message hook. It does not stage files. First preview and inspect the
+staged diff, author, committer, and exact message:
+
+```sh
+node ~/.config/kilo/tools/commit.cjs --subject "Improve folder navigation" --overview "Make the folder action easier to find."
+```
+
+Add a separate `--bullet "..."` for each material change; at least two are
+required when multiple files are staged. After reviewing the preview, repeat
+the same command with `--commit` to commit the staged changes. The helper
+validates again and uses `git commit -F`; normal Git hooks remain enabled.
+Review the staged diff again if it changes between preview and commit.
+
+Run its integration tests from this checkout:
+
+```sh
+node --test tests/commit.test.cjs
+```
+
+### Relink an Obsidian plugin
+
+The helper takes the vault path explicitly and never searches for a vault:
+
+```sh
+node ~/.config/kilo/tools/obsidian-relink.mjs --vault /path/to/vault
+node ~/.config/kilo/tools/obsidian-relink.mjs --vault /path/to/vault --source /path/to/plugin
+```
+
+It reuses an existing link name, otherwise uses the manifest id. Pass `--name` to
+choose the folder. On Windows it creates a junction; elsewhere a directory
+symlink. It refuses to delete a real plugin directory.
 
 ## Enable the Git commit-msg hook
 
@@ -529,6 +633,8 @@ paths should include the corresponding file below:
 Kilo:  ~/.config/kilo/AGENTS.md
 Delta: ~/.config/delta/AGENTS.md
 Gemini: ~/.gemini/config/AGENTS.md
+Copilot: ~/.copilot/copilot-instructions.md
+OpenCode: ~/.config/opencode/AGENTS.md
 ```
 
 On Windows, these paths are under your user profile. Delta may use
@@ -586,6 +692,10 @@ creates required parent directories, including `~/.config/kilo/`.
 Install Kilo and chezmoi in either order. Kilo configuration files that are not
 managed by this repository, such as an existing `kilo.jsonc`, can coexist with
 the managed global `AGENTS.md`.
+
+For the Git Bash `shell` setting and the PowerShell deny rules, merge the
+snippet from [`docs/kilo-config.md`](docs/kilo-config.md) into
+`~/.config/kilo/kilo.jsonc`. That file is not managed by chezmoi.
 
 ### Windows
 
@@ -664,6 +774,21 @@ Start a new Kilo session after setup.
 ---
 
 ## Troubleshooting
+
+### Kilo still uses PowerShell
+
+Confirm `~/.config/kilo/kilo.jsonc` has the top-level `shell` setting from
+[`docs/kilo-config.md`](docs/kilo-config.md), then start a new session. An
+existing session keeps the shell it was launched with.
+
+Inside the new session, run:
+
+```sh
+printf 'shell=%s\n' "$BASH_VERSION"
+```
+
+It must print a bash version. If it does not, confirm
+`C:\Program Files\Git\bin\bash.exe` exists and restart Kilo.
 
 ### A global-rule change is not taking effect
 
