@@ -330,6 +330,12 @@ starts Git Bash (or another explicitly verified POSIX shell) directly. If the
 host exposes only a PowerShell-backed command runner, stop the shell-dependent
 portion, state that limitation, and continue with direct file/API tools where
 possible; do not request approval for a PowerShell-wrapped command.
+Never send an absolute out-of-workspace path to a workspace file-view tool,
+including for logs, session state, caches or home-directory files. That
+creates repeated approval prompts. Read such paths through the direct
+POSIX-shell tool when available; otherwise use the dedicated session/file-log
+tool or stop and state the access limitation. Do not ask the user to approve
+the same out-of-workspace file read repeatedly.
 PowerShell backticks corrupt text, old redirection corrupts UTF-8 and old hosts
 lack POSIX heredocs/chaining. Keep file edits in dedicated tools.
 If Git Bash is missing, stop and ask for Git for Windows; use another POSIX shell
