@@ -291,16 +291,20 @@ disable, weaken or fake their checks.
 
 ## Rule: Protected default-branch publication
 
-When the user explicitly asks to publish or push to the protected default branch
-(`main`, `master` or its documented equivalent), or when the requested endpoint
-necessarily requires publication there, treat that as authorization to create a
-PR and use `gh pr merge --admin` if direct publication is blocked by its
-required-branch rules. Use this only after the exact PR title, body, commits,
-required checks, reviews and attribution policy have passed.
-The authorization does not permit a failing or unresolved PR, a conflict, an
-attribution-policy violation, removal of the protection, or a repository-rule
-change. Do not use or simulate a nonexistent `git push --admin`; the admin flag
-applies to the eligible GitHub PR merge command.
+When the user explicitly asks to publish to the protected default branch (`main`,
+`master` or its documented equivalent), or the requested endpoint necessarily
+requires that publication, that is authorization to use the repository admin path.
+First inspect whether the authenticated administrator can bypass the ruleset. If
+so, push directly to the explicitly intended default branch after the local
+hooks/checks and outgoing commit/title/body inspection pass; do not manufacture
+a PR merely to obtain a required status for the administrator.
+If direct admin bypass is unavailable, create the minimal PR and, for an eligible
+owner/admin publication, use `gh pr merge --admin` only after required checks,
+reviews, attribution policy and conflict state pass. This authorization never
+permits bypassing a failing check, unresolved review, conflict or attribution
+violation, nor removing the protection that still applies to other contributors.
+Do not use or simulate a nonexistent `git push --admin`; the command-line flag
+belongs to `gh pr merge` when that fallback path is actually needed.
 
 ## Rule: Git commit messages
 
