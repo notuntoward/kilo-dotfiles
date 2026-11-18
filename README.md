@@ -166,6 +166,23 @@ the installed files match the source. Start a new Kilo, Delta, Gemini, Copilot, 
 to load updated rules; an existing session keeps the instructions it already
 loaded.
 
+### Shared skills (independent of Copilot)
+
+Shared skill sources live under `dot_agents/skills/` and chezmoi installs them
+under `~/.agents/skills/`. These are ordinary Markdown files, outside any
+Copilot-specific directory; removing Copilot does not remove this managed setup.
+Agents without native support for this skill location can read the files
+directly when directed by a project's `AGENTS.md`.
+
+| Skill | Source | Installed location |
+|---|---|---|
+| Safe Perplexity userscript debugging | [SKILL.md](dot_agents/skills/perplexity-debugging/SKILL.md) | `~/.agents/skills/perplexity-debugging/SKILL.md` |
+
+Edit the source, run `chezmoi apply`, and verify `chezmoi diff` is empty.
+The Perplexity skill uses the harness in the `obsidian-perplexity-saver` checkout;
+it is not a standalone copy of that harness. Its project-level `AGENTS.md`
+provides the escalation trigger and shared-skill path.
+
 ### Adding another AI harness
 
 The canonical rule text is `dot_config/kilo/AGENTS.md`. Each harness needs only a
