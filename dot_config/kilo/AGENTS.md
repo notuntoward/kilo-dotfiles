@@ -654,6 +654,21 @@ when the task does not touch an owned area; otherwise stop and ask.
   at release (see the library's `docs/PLAN.md`). A plugin whose `commons`
   dependency is `file:` must not be released or tagged.
 
+### Obsidian community-review gate
+
+- Obsidian plugins using commons, the plugin template and the commons library
+  itself keep a checked-in `eslint.community-review.config.mjs` plus a
+  `lint:community-review` script using `eslint-plugin-obsidianmd`; local
+  `check` includes that script.
+- The canonical config is owned by `obsidian-commons` and synchronized through
+  its inventory tooling. Do not create repository-specific rule exceptions.
+- Obsidian community rules apply to Obsidian runtime/build inputs. Standalone
+  Tampermonkey/userscript sources use their own normal runtime lint scope.
+- Cross-repository community review is an explicit commons suite operation:
+  `node scripts/inventory.mjs community-review <name|all>`. A consumer's local
+  check/build must never invoke the inventory or start sibling validation;
+  this prevents recursive commons-to-consumer traversal.
+
 ### Changing commons (you do this yourself and tell the user)
 
 Docs/instructions/publication-only work does not trigger the library/consumer
@@ -671,7 +686,10 @@ fixes a bug that exists in several copies. Then:
 3. Update `docs/CHECKLIST.md` and add a `docs/HANDOFF.md` entry (newest first).
 4. "Make it available": in local mode nothing to publish. Run the consumer's own
    full check against it (`node scripts/consumers.mjs check <name>` from the
-   commons repo) and fix what breaks. Do the consumer-side adoption yourself.
+   commons repo) and fix what breaks. The consumer's check includes its local
+   community-review gate. Run the explicit suite `community-review all` command
+   only when a whole-inventory gate is requested. Do the consumer-side adoption
+   yourself.
 5. Tag a release (`vX.Y.Z`, semver) only when the plan calls for it (first
    at the flip to tags, then for breaking or widely wanted changes); follow the
    git commit message rule; never skip hooks.
