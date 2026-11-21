@@ -72,6 +72,9 @@ This section governs workflow/check frequency; domain safety rules below still a
 - Batch independent reads and checkout/status probes. Inspect only affected diffs
   and relevant guide sections. Do not restart exploration or re-audit unchanged code
   merely because the next action is commit/push or the context was summarized.
+- Avoid speculative filesystem targets. In multi-path reads and searches, use only
+  paths established by inventory, prior reads, or explicit user input; verify uncertain
+  optional paths separately before combining them.
 - Resolve a concrete uncertainty with one discriminating check, not repeated
   speculation. Keep reasoning, output and tracking proportional to the task.
 
