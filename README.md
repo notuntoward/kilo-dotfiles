@@ -94,7 +94,10 @@ that the current repository uses the relevant technology or workflow.
 │       └── tools/
 │           └── obsidian-relink.mjs  # Cross-platform Obsidian plugin relinking helper
 ├── dot_copilot/
-│   └── copilot-instructions.md.tmpl  # Copilot personal rules (includes the Kilo source)
+│   ├── copilot-instructions.md.tmpl  # Copilot personal rules (includes the Kilo source)
+│   └── extensions/
+│       └── direct-git-bash-user/
+│           └── extension.mjs # Copilot-only structured POSIX shell tool
 └── dot_gemini/
     └── config/
         └── AGENTS.md.tmpl      # Antigravity IDE global rules (includes dot_config/kilo/AGENTS.md)
@@ -145,6 +148,42 @@ dot_config/opencode/AGENTS.md.tmpl         -->   ~/.config/opencode/AGENTS.md   
 - Always apply the whole repository. `chezmoi apply` with no path updates all
   five rule files (and the other managed files) in one step. Applying only the
   Kilo path leaves the other copies stale.
+
+### Copilot shell extension (Copilot only)
+
+`dot_copilot/extensions/direct-git-bash-user/extension.mjs` is installed as
+`~/.copilot/extensions/direct-git-bash-user/extension.mjs`. The Copilot SDK
+discovers it and registers the `direct_git_bash` tool only for Copilot sessions.
+Kilo Code, OpenCode, Delta, Gemini, and other consumers of the canonical rules do
+not load this Copilot extension and cannot call its tool schema. They continue to
+use their own native shell, file, and process tools. The global `AGENTS.md` stays
+tool-neutral; it requires a direct POSIX-capable shell tool without naming or
+depending on a Copilot-specific API.
+
+The extension is multiplatform. On macOS and Linux it uses Bash discovered from
+the native environment and PATH. On Windows it discovers an adequate Git, MSYS,
+Cygwin, or other compatible Bash from PATH, the `git` executable location, and
+standard environment roots; it explicitly avoids the Windows WSL `bash.exe`
+launcher. It prepends the discovered distribution utility directories only
+when they exist. Set `COPILOT_POSIX_BASH` to an absolute Bash path to override
+discovery on any platform.
+
+Its `argv` mode executes a native program directly without a shell, so a Bash
+installation is not required for commands that are already on PATH. Its `script`
+and legacy `command` modes require the discovered Bash. If no adequate shell is
+available, Copilot can still use `argv`; shell-dependent work stops with an
+explicit diagnostic instead of falling back to PowerShell.
+
+| Harness | Rule source | Shell execution | Needs this Copilot extension? |
+|---|---|---|---|
+| Copilot CLI / VS Code Copilot | Rendered `copilot-instructions.md` | `direct_git_bash`, plus native Copilot tools | Yes, for this implementation |
+| Kilo Code | `~/.config/kilo/AGENTS.md` | Kilo-native configured shell | No |
+| OpenCode | `~/.config/opencode/AGENTS.md` | OpenCode-native shell tools/configuration | No |
+| Delta / Gemini | Their rendered rule copies | Harness-native tools | No |
+
+Other consumers of the dotfile repository should port or configure only the
+capabilities their host supports; installing this extension under `.copilot` is
+not a cross-harness plugin mechanism.
 
 ### Update all agent rule copies with one command
 
@@ -469,6 +508,11 @@ machines. Unmanaged files can coexist in `~/.config/kilo/`.
 ---
 
 ## Kilo shell and permissions
+
+This section configures Kilo itself; it does not configure the Copilot extension
+or an OpenCode tool. On macOS and Linux, use the native POSIX shell available in
+the host environment. The explicit Windows Git Bash path below is Windows-only
+and must not be copied to those platforms.
 
 Kilo's `~/.config/kilo/kilo.jsonc` is deliberately unmanaged because it contains
 machine-specific `external_directory` paths. The reproducible setup is recorded
