@@ -297,15 +297,20 @@ disable, weaken or fake their checks.
 When the user explicitly asks to publish to the protected default branch (`main`,
 `master` or its documented equivalent), or the requested endpoint necessarily
 requires that publication, that is authorization to use the repository admin path.
-First inspect whether the authenticated administrator can bypass the ruleset. If
-so, push directly to the explicitly intended default branch after the local
-hooks/checks and outgoing commit/title/body inspection pass; do not manufacture
-a PR merely to obtain a required status for the administrator.
-If direct admin bypass is unavailable, create the minimal PR and, for an eligible
-owner/admin publication, use `gh pr merge --admin` only after required checks,
-reviews, attribution policy and conflict state pass. This authorization never
-permits bypassing a failing check, unresolved review, conflict or attribution
-violation, nor removing the protection that still applies to other contributors.
+First query the full details of each applicable ruleset, by ruleset ID, for the
+authenticated administrator's `current_user_can_bypass` and `bypass_actors`.
+Treat omitted or null fields in a branch summary or ruleset-list response as
+inconclusive, never as proof that bypass is unavailable. Confirm the user's admin
+permission and the endpoint's `current_user_can_bypass` result before choosing
+a PR fallback. If bypass is allowed, push directly to the explicitly intended
+default branch after the local hooks/checks and outgoing commit/title/body
+inspection pass; do not manufacture a PR merely to obtain a required status for
+the administrator. If direct admin bypass is unavailable, create the minimal PR
+and, for an eligible owner/admin publication, use `gh pr merge --admin` only
+after required checks, reviews, attribution policy and conflict state pass. This
+authorization never permits bypassing a failing check, unresolved review,
+conflict or attribution violation, nor removing the protection that still applies
+to other contributors.
 Do not use or simulate a nonexistent `git push --admin`; the command-line flag
 belongs to `gh pr merge` when that fallback path is actually needed.
 
