@@ -66,6 +66,12 @@ This section governs workflow/check frequency; domain safety rules below still a
 - Code changes: targeted tests during iteration, required final checks once after the
   last relevant edit. A composite build already covers its lint/typecheck/test/bundle
   steps; do not rerun those separately. Verify that bundle rather than rebuilding it.
+- Before an intentional pre-fix regression check, tell the user that failure is
+  expected. Use a wrapper that prints the output and returns success only when
+  the command fails and the specific test and expected assertion or error are
+  verified; label the result as an expected failure. An unexpected pass, a
+  different failure, or a test-runner/infrastructure error must remain a failure.
+  Never mask failures from ordinary checks.
 - Record command, checkout, result and relevant input/artifact identity in session
   state, not new repository cache files. Invalidate only affected evidence when its
   inputs change; never invent a pass or skip a newly affected behavioral check.
