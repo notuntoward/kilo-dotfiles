@@ -478,6 +478,24 @@ the user explicitly supplies. Relinking requires explicit authorization, the
 obsidian-relink.mjs helper with that explicit path, and preservation of the
 original target/settings; explain the changed settings location.
 
+## Rule: Install the Zotero Obsidian Companion for debugging
+
+When changing Zotero Obsidian Companion runtime source or build inputs, build
+and verify its XPI in the original checkout, then install that verified XPI
+into the existing Zotero profile automatically, without asking for permission
+again. This authorization applies unless the user says not to install it.
+
+Identify the existing installation unambiguously; do not guess a profile or
+change other extensions. If the target is unavailable or ambiguous, ask the
+user. If Zotero is running, ask the user to close it; never terminate it.
+Back up the installed XPI before replacing it, and verify that the installed
+file matches the built artifact. Report the installed artifact and tell the
+user when restarting Zotero is needed. Do not start Zotero, retry uncertain
+operations, or acknowledge reviews automatically.
+
+Do not search for vaults or change vault links or settings. Obsidian plugins
+continue to use the vault-independent artifact verification rule above.
+
 ## Rule: Node build and test scripts
 
 Apply this rule only in repositories that use npm and package their validation through scripts.
