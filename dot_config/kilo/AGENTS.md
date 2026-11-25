@@ -496,6 +496,42 @@ operations, or acknowledge reviews automatically.
 Do not search for vaults or change vault links or settings. Obsidian plugins
 continue to use the vault-independent artifact verification rule above.
 
+## Rule: Zotero plugins
+
+Apply this rule to any Zotero 7+ bootstrapped plugin (a repository with
+`addon/bootstrap.js` or a manifest declaring `applications.zotero`),
+including plugins not yet created. Project-level `AGENTS.md` files add
+plugin-specific details.
+
+- Zotero caches compiled subscripts in the profile's `startupCache`, keyed by
+  the script URL inside the XPI path, not by its contents. Replacing an XPI
+  without a version bump can run the OLD JavaScript after a restart, while
+  uncached preference XHTML and FTL files already look new. In `bootstrap.js`,
+  load the bundle with `Services.scriptloader.loadSubScriptWithOptions(url,
+  { target: ctx, ignoreCache: true })`, guarded by a static test. After a
+  manual XPI replacement, clear the profile's `startupCache` once while Zotero
+  is closed (with approval); `bootstrap.js` itself may also be cached.
+- Prove an install with behavior only the new JavaScript provides. A new
+  settings row, build timestamp or matching XPI hash is not proof.
+- Zotero is closed only when every `zotero.exe` process has exited; dialogs
+  and report windows keep it alive. Check the process list; never terminate it.
+- `Zotero.MenuManager.registerMenu` does not hide items whose `l10nID` is
+  unresolved; a missing item means registration or `onShowing` did not run.
+  The zotero-plugin scaffold prefixes FTL IDs with `<addonRef>-`; add every
+  new message to every locale.
+- Every user command belongs in the plugin's menu and can take a shortcut. A
+  `ztoolkit.Keyboard` shortcut needs a `prefs.js` default, a preferences
+  field, the preference script's key list and the keydown dispatcher; missing
+  one makes it look assignable but not work.
+- Read `zotero.sqlite` only read-only from a copy (the live file is locked).
+  Item keys are `items.key`; titles join `itemData`, `fields`
+  (`fieldName='title'`) and `itemDataValues`; check `deletedItems`. Verify
+  keys recorded elsewhere, such as note frontmatter, against it. Never write it.
+- Zotero 10: `Zotero.Promise` guarantees only `delay`, `defer` and `method`;
+  `skin/tick.png` and `skin/cross.png` were removed; progress windows are
+  XUL/XHTML hybrids, so an injected `<style>` must use the XHTML namespace,
+  and call `sizeToContent()` again after `setText()`.
+
 ## Rule: Node build and test scripts
 
 Apply this rule only in repositories that use npm and package their validation through scripts.
