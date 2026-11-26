@@ -659,6 +659,63 @@ Add regression coverage whenever you touch this area:
 
 A test cannot reproduce a real focused pop-out, so state that a manual check in
 Obsidian is still needed.
+## Rule: Obsidian clickable UI (notices and modals)
+
+Apply this rule when building interactive UI in an Obsidian plugin: notices
+with buttons, modals, review editors, or status feedback.
+
+### Notice (toast) or modal
+
+- Use a notice for a quick, optional choice the user may want to make while
+  still seeing and editing notes, such as picking which of two notes opened side
+  by side to keep. A modal would cover the notes needed to decide, and it blocks
+  work that does not depend on the answer.
+- Use a modal when the decision must happen before anything proceeds, needs
+  several fields or keyboard navigation, or confirms a destructive action with
+  details the user must read.
+- A notice choice needs `timeout` 0 (it must not vanish mid-decision), an
+  explicit way to dismiss it, and a command that reopens or performs the same
+  choice, because a notice is not keyboard reachable and is easy to lose.
+
+### Notice mechanics that are not obvious
+
+- Clicking anywhere in a notice dismisses it. Make the entire visible choice
+  (the whole row or box that looks clickable) the click target, and call
+  `stopPropagation` on it and on its container, including the gaps between rows,
+  so a near miss does not dismiss the notice.
+- Notices use inverted theme colors. Inside them, style with `currentColor`,
+  `inherit` and transparency instead of normal theme text/background variables,
+  and check contrast in both light and dark themes.
+- Notices are narrow. Let content wrap (`flex-wrap`, `min-width: 0`,
+  `overflow-wrap: anywhere`); never let a button overflow or clip its label.
+  Keep a label visually separate from a file name next to it.
+
+### Make the chosen thing look chosen
+
+- Typography and contrast must match meaning. The item being kept, applied or
+  chosen gets the strongest emphasis; items being discarded or trashed are
+  muted and never bold or headed. Do not rely on a subtle accent outline when a
+  neighboring element has a stronger default style (a white button or outline
+  outweighs a dark accent). Use `commons/color` contrast helpers where relevant.
+- A bulk action pair that are exact opposites (keep all / use all) should be one
+  toggle whose label states the result of pressing it.
+- A count on a finish button must count what that button does. If the button
+  does more than the counted thing (merging also copies text and moves notes),
+  drop the count and put the detail in the status line.
+- An operation the user explicitly requested must end with a visible outcome,
+  including "nothing found". Silent completion looks like a broken command.
+
+### Layout and verification
+
+- In grid rows, give every auxiliary element (status badges, provenance,
+  revert buttons, error text) an explicit grid column/row. Auto-placement
+  orphans them in a separate row when a value wraps to several lines.
+- Use `createDiv`/`createSpan` rather than `createEl("div"|"span")`; the
+  Obsidian community-review lint rejects the latter.
+- Unit tests cannot show visual layout. Render the real generated CSS with a
+  mock DOM in headless Playwright at a normal and a narrow width, inspect the
+  screenshot, and state that a manual check in Obsidian is still needed.
+
 ## Rule: Obsidian shared library (`commons`)
 
 Apply this rule only in Obsidian plugin repositories (and in the library repo
