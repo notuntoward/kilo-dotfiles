@@ -38,25 +38,20 @@ rule.
 
 ## Rule: Mandatory instruction preflight
 
-Read the exact applicable AGENTS.md/AGENT.md once for the current checkout and
-target paths; do not substitute memory of another session. Cache unchanged text
-within this task, including through publication. Read referenced guides only for
-the operation they govern, and only the relevant sections. After compaction,
-restore missing instructions, not the entire hierarchy.
+Read the exact applicable AGENTS.md/AGENT.md for each checkout and target path;
+do not substitute memory of another session. Reuse unchanged text already read
+in this session, including across tasks and publication. After compaction or a
+checkout/instruction change, restore only missing or changed sections. Read
+referenced guides only for the operation they govern and relevant sections;
+do not recursively read guides.
 
 Identify the actual runtime artifact only when source/build inputs are affected.
 If a required original checkout, instruction or artifact is unavailable, state
 the blocker and ask for access; do not claim equivalent verification elsewhere.
-At completion, report required checks or reused evidence and any manual/unrun
-validation. A completion check is not a mandate to reread unchanged instructions.
 
 ## Efficient task workflow
 
 This section governs workflow/check frequency; domain safety rules below still apply.
-- Read exact applicable instructions once per checkout/task. Reuse that text while
-  it remains in context and unchanged; reread only changed or missing sections after
-  compaction, a checkout change, or an instruction edit. Referenced documents are
-  conditional reading, not a recursive reading list.
 - Classify the actual diff first. Docs/instructions-only: review text, links and
   relevant render/format checks; no application builds, tests, browser runs,
   dependency installs or consumer sweeps unless a declared documentation check needs them.
@@ -75,9 +70,14 @@ This section governs workflow/check frequency; domain safety rules below still a
 - Record command, checkout, result and relevant input/artifact identity in session
   state, not new repository cache files. Invalidate only affected evidence when its
   inputs change; never invent a pass or skip a newly affected behavioral check.
-- Batch independent reads and checkout/status probes. Inspect only affected diffs
-  and relevant guide sections. Do not restart exploration or re-audit unchanged code
-  merely because the next action is commit/push or the context was summarized.
+- Batch independent reads and Git probes across checkouts. Review only affected
+  diffs and guide sections; do not re-audit unchanged code for publication or
+  after compaction. Reuse a reviewed diff if exact staged contents match;
+  otherwise inspect changed hunks. Preserve staged-scope, identity, literal
+  message, hook, outgoing-commit and remote-tip checks.
+- Reuse commit style verified in this session; otherwise sample only enough
+  history to establish it. Bound output; do not reprint unchanged instructions
+  or diffs.
 - Avoid speculative filesystem targets. In multi-path reads and searches, use only
   paths established by inventory, prior reads, or explicit user input; verify uncertain
   optional paths separately before combining them.
@@ -608,8 +608,8 @@ which earlier results are reused, and verify any affected runtime artifact.
 State unrun/manual checks and failures honestly. Documentation/instruction-only
 work needs text/link/render/format validation, not application tests/builds.
 After publication, verify the intended remote tip, branch and remaining dirty
-status; do not restart implementation discovery. Never claim a check passed
-unless it actually completed successfully for the relevant inputs.
+status; do not restart discovery or reread unchanged instructions. Never claim
+a check passed unless it actually completed successfully for the relevant inputs.
 
 ## Rule: Obsidian settings tabs
 
