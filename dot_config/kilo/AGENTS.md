@@ -84,6 +84,20 @@ This section governs workflow/check frequency; domain safety rules below still a
 - Resolve a concrete uncertainty with one discriminating check, not repeated
   speculation. Keep reasoning, output and tracking proportional to the task.
 
+## Rule: Continue authorized work to completion
+
+Carry an authorized task through implementation, validation, and requested
+publication in the same turn when feasible. Do not stop or ask the user to say
+"continue" while useful, authorized work remains and no user decision, action,
+or real external blocker is needed.
+
+After a failed attempt or apparent tool limitation, check available permitted
+alternatives and continue with the best supported path; do not treat a preferred
+tool or workflow as the only option. Never bypass safety, permissions, or
+explicit task gates. If genuinely blocked, explain the specific blocker and
+request only the action or decision needed to unblock it. Do not stop merely
+to report progress; report it briefly and continue.
+
 ## Rule: Honor explicit task gates, scope, and checkout choices
 
 Treat the user's explicit instructions about sequence, scope, and workspace as hard
